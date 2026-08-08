@@ -5,13 +5,10 @@ import { toast } from "sonner";
 import { Instagram, Link2, AlertTriangle } from "lucide-react";
 import { q } from "@/lib/data";
 import { instagram } from "@/lib/integrations/instagram";
+import { youtube } from "@/lib/integrations/youtube";
 import { integrationAccountsQuery, integrationSyncRunsQuery } from "@/lib/integrations/queries";
-import { integrationConnector, connectorHealth } from "@/lib/integrations/connector";
-import type {
-  IntegrationAccountSafe,
-  IntegrationProvider,
-  IntegrationStatus,
-} from "@/lib/integrations/types";
+import { cashHoldingsSupabase } from "@/integrations/cash-holdings/client";
+import type { IntegrationAccountSafe } from "@/lib/integrations/types";
 import { Surface, SkeletonRows, EmptyState } from "@/components/ui-bits";
 import { IntegrationCard, type IntegrationCardHealth } from "@/components/integrations/integration-card";
 import { CONNECTED_CATALOG, AVAILABLE_CATALOG, FUTURE_CATALOG } from "@/components/integrations/catalog";
@@ -67,17 +64,35 @@ function statusTone(status: string | null): IntegrationCardHealth {
   return "unknown";
 }
 
+function toErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : "Action failed";
+}
+
+type ConnectorHealth = {
+  ok: boolean;
+};
+
+async function deployedConnectorHealth(): Promise<ConnectorHealth> {
+  const { data, error } = await cashHoldingsSupabase.functions.invoke<ConnectorHealth>(
+    "integrations/health",
+    { method: "GET" },
+  );
+  if (error) throw error;
+  if (!data) throw new Error("No response from integrations/health");
+  return data;
+}
+
 function IntegrationsPage() {
   const search = useSearch({ from: "/_authenticated/integrations" });
   const qc = useQueryClient();
-  const [expanded, setExpanded] = useState<"instagram" | null>(null);
+  const [expanded, setExpanded] = useState<"instagram" | "youtube" | null>(null);
 
   const brands = useQuery({ queryKey: ["brands"], queryFn: q.brands });
   const runs = useQuery(integrationSyncRunsQuery(undefined, 12));
   const accounts = useQuery(integrationAccountsQuery());
   const health = useQuery({
     queryKey: ["connectorHealth"],
-    queryFn: connectorHealth,
+    queryFn: deployedConnectorHealth,
     retry: false,
     staleTime: 60_000,
   });
@@ -94,8 +109,12 @@ function IntegrationsPage() {
     () => (accounts.data ?? []).filter((a) => a.provider === "instagram"),
     [accounts.data]
   );
+  const youtubeAccounts = useMemo(
+    () => (accounts.data ?? []).filter((a) => a.provider === "youtube"),
+    [accounts.data]
+  );
 
-  const summarize = (rows: typeof instagramAccounts) => {
+  const summarize = (rows: IntegrationAccountSafe[]) => {
     const connectedRows = rows.filter((r) => r.status === "connected");
     const lastSyncedAt = connectedRows.reduce<string | null>((max, r) => {
       if (!r.last_synced_at) return max;
@@ -107,6 +126,7 @@ function IntegrationsPage() {
   };
 
   const instagramSummary = summarize(instagramAccounts);
+  const youtubeSummary = summarize(youtubeAccounts);
 
   const instagramByBrand = useMemo(() => {
     const map = new Map<string, IntegrationAccountSafe>();
@@ -123,6 +143,22 @@ function IntegrationsPage() {
     }
     return map;
   }, [instagramAccounts]);
+
+  const youtubeByBrand = useMemo(() => {
+    const map = new Map<string, IntegrationAccountSafe>();
+    for (const row of youtubeAccounts) {
+      if (!row.brand_key) continue;
+      const current = map.get(row.brand_key);
+      if (!current) {
+        map.set(row.brand_key, row);
+        continue;
+      }
+      if (current.status !== "connected" && row.status === "connected") {
+        map.set(row.brand_key, row);
+      }
+    }
+    return map;
+  }, [youtubeAccounts]);
 
   return (
     <div className="space-y-6">
@@ -156,7 +192,7 @@ function IntegrationsPage() {
               {health.data
                 ? health.data.ok
                   ? <span className="text-success">COMPLETE</span>
-                  : <span className="text-warn">MISSING {health.data.missingEnv.join(" · ")}</span>
+                  : <span className="text-warn">INCOMPLETE</span>
                 : "—"}
             </span>
           </div>
@@ -197,6 +233,38 @@ function IntegrationsPage() {
                   />
                 );
               }
+              if (entry.id === "youtube") {
+                return (
+                  <IntegrationCard
+                    key={entry.id}
+                    icon={entry.icon}
+                    name={entry.name}
+                    description={`${entry.description} OAuth callback completion is currently limited in production.`}
+                    state={youtubeSummary.connected ? "connected" : "available"}
+                    accountLabel={
+                      youtubeSummary.connected
+                        ? `${youtubeSummary.count} brand${youtubeSummary.count === 1 ? "" : "s"} connected`
+                        : undefined
+                    }
+                    lastSyncedAt={youtubeSummary.lastSyncedAt}
+                    health={youtubeSummary.lastError ? "error" : "unknown"}
+                    errorMessage={youtubeSummary.lastError}
+                    onConnect={() => setExpanded("youtube")}
+                    onConfigure={() => setExpanded(expanded === "youtube" ? null : "youtube")}
+                  />
+                );
+              }
+              if (entry.id === "google-analytics") {
+                return (
+                  <IntegrationCard
+                    key={entry.id}
+                    icon={entry.icon}
+                    name={entry.name}
+                    description={`${entry.description} Currently unavailable in production.`}
+                    state="coming-soon"
+                  />
+                );
+              }
               if (entry.id === "ebay") {
                 return (
                   <IntegrationCard
@@ -209,11 +277,12 @@ function IntegrationsPage() {
                 );
               }
               return (
-                <GenericProviderCard
+                <IntegrationCard
                   key={entry.id}
-                  provider={entry.id as IntegrationProvider}
-                  entry={entry}
-                  onChanged={() => analyticsRefresh.integrationSynced(qc)}
+                  icon={entry.icon}
+                  name={entry.name}
+                  description={`${entry.description} Currently unavailable in production.`}
+                  state="coming-soon"
                 />
               );
             })}
@@ -278,6 +347,32 @@ function IntegrationsPage() {
         </section>
       )}
 
+      {expanded === "youtube" && (
+        <section className="glass-panel rounded-lg divide-y divide-hairline ch-fade-in">
+          <div className="px-3 py-2 flex items-center gap-2">
+            <div className="mono-label !text-[9px]">YOUTUBE · PER BRAND</div>
+            <div className="ml-auto mono-label !text-[9px] text-foreground/50">
+              {(brands.data ?? []).length} BRANDS
+            </div>
+          </div>
+          <div className="px-3 py-2 text-[11.5px] text-muted-foreground">
+            Connect start is live, but OAuth callback completion is still limited in production.
+          </div>
+          {(brands.data ?? []).map((b) => (
+            <YouTubeBrandRow
+              key={b.id}
+              brandKey={b.slug}
+              name={b.name}
+              snapshot={youtubeByBrand.get(b.slug) ?? null}
+              onChanged={() => {
+                analyticsRefresh.integrationSynced(qc);
+              }}
+            />
+          ))}
+          {brands.isLoading && <SkeletonRows rows={3} className="p-3" />}
+        </section>
+      )}
+
       <Surface title="SYNC RUNS" flush>
         <div className="divide-y divide-edge">
           {(runs.data ?? []).map((r) => (
@@ -321,85 +416,6 @@ function IntegrationsPage() {
   );
 }
 
-/** Card-level controller for single-account providers (youtube, google-analytics)
- * that use the shared connector at the workspace level (no per-brand key). */
-function GenericProviderCard({
-  provider,
-  entry,
-  onChanged,
-}: {
-  provider: IntegrationProvider;
-  entry: (typeof CONNECTED_CATALOG)[number];
-  onChanged: () => void;
-}) {
-  const statusQuery = useQuery({
-    queryKey: ["integration-status", provider, "all"] as const,
-    queryFn: () => integrationConnector.status(provider, null),
-    retry: false,
-  });
-  const [busy, setBusy] = useState<string | null>(null);
-  const [local, setLocal] = useState<IntegrationStatus | null>(null);
-  const qc = useQueryClient();
-
-  const status = local ?? statusQuery.data ?? null;
-  const connected = status?.connected ?? false;
-
-  const run = async (label: string, fn: () => Promise<void>) => {
-    setBusy(label);
-    try {
-      await fn();
-    } catch (err: any) {
-      toast.error(err?.message ?? "Action failed");
-    } finally {
-      setBusy(null);
-    }
-  };
-
-  const health: IntegrationCardHealth = status?.lastError ? "error" : connected ? "ok" : "unknown";
-
-  return (
-    <IntegrationCard
-      icon={entry.icon}
-      name={entry.name}
-      description={entry.description}
-      state={connected ? "connected" : "available"}
-      accountLabel={status?.accountUsername ?? status?.accountName ?? undefined}
-      lastSyncedAt={status?.lastSyncedAt}
-      health={health}
-      errorMessage={status?.lastError}
-      busy={busy}
-      onConnect={() =>
-        run("connect", async () => {
-          const { authorizationUrl } = await integrationConnector.connect(provider, null);
-          window.location.href = authorizationUrl;
-        })
-      }
-      onSync={
-        connected
-          ? () =>
-              run("sync", async () => {
-                const result = await integrationConnector.sync(provider, null);
-                setLocal(result);
-                onChanged();
-                toast.success(`Sync complete · ${result.written ?? 0} metrics written`);
-              })
-          : undefined
-      }
-      onDisconnect={
-        connected
-          ? () =>
-              run("disconnect", async () => {
-                setLocal(await integrationConnector.disconnect(provider, null));
-                onChanged();
-                qc.invalidateQueries({ queryKey: ["integration-status", provider, "all"] });
-                toast.success(`${entry.name} disconnected`);
-              })
-          : undefined
-      }
-    />
-  );
-}
-
 function InstagramBrandRow({
   brandKey,
   name,
@@ -419,8 +435,8 @@ function InstagramBrandRow({
     setLocalError(null);
     try {
       await fn();
-    } catch (err: any) {
-      const message = err?.message ?? "Action failed";
+    } catch (err: unknown) {
+      const message = toErrorMessage(err);
       setLocalError(message);
       toast.error(message);
     } finally {
@@ -466,6 +482,85 @@ function InstagramBrandRow({
           onClick={() =>
             run("connect", async () => {
               const { authorizationUrl } = await instagram.connect(brandKey);
+              window.location.href = authorizationUrl;
+              onChanged();
+            })
+          }
+        >
+          <Link2 className="h-3 w-3 inline mr-1" />
+          {busy === "connect" ? "OPENING…" : connected ? "RECONNECT" : "CONNECT"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function YouTubeBrandRow({
+  brandKey,
+  name,
+  snapshot,
+  onChanged,
+}: {
+  brandKey: string;
+  name: string;
+  snapshot: IntegrationAccountSafe | null;
+  onChanged: () => void;
+}) {
+  const [busy, setBusy] = useState<string | null>(null);
+  const [localError, setLocalError] = useState<string | null>(null);
+
+  const run = async (label: string, fn: () => Promise<void>) => {
+    setBusy(label);
+    setLocalError(null);
+    try {
+      await fn();
+    } catch (err: unknown) {
+      const message = toErrorMessage(err);
+      setLocalError(message);
+      toast.error(message);
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const connected = snapshot?.status === "connected";
+  const accountUsername = snapshot?.account_username ?? snapshot?.external_account_id ?? null;
+  const lastSyncedAt = snapshot?.last_synced_at ?? null;
+  const errorMessage = localError ?? snapshot?.last_error ?? null;
+  const health = statusTone(snapshot?.status ?? null);
+  const connectionLabel =
+    snapshot?.status === "connected"
+      ? ` · ${snapshot.account_username ? `@${snapshot.account_username}` : "connected"}`
+      : " · not connected";
+
+  return (
+    <div className="px-3 py-2 flex items-center gap-3">
+      <span className={"h-1.5 w-1.5 rounded-full " + (connected ? "bg-teal teal-glow" : "bg-foreground/25")} />
+      <div className="min-w-0">
+        <div className="text-[13px] leading-none">{name}</div>
+        <div className="mono-label !text-[9px] text-foreground/50 mt-1">
+          {brandKey}
+          {connectionLabel}
+          {lastSyncedAt ? ` · synced ${new Date(lastSyncedAt).toLocaleString()}` : ""}
+          {accountUsername && !connected ? ` · ${accountUsername}` : ""}
+        </div>
+      </div>
+      {errorMessage && (
+        <span className="flex items-center gap-1 text-[11px] text-amber-400/80 truncate max-w-[280px]">
+          <AlertTriangle className="h-3 w-3 shrink-0" />
+          {errorMessage}
+        </span>
+      )}
+      <div className="ml-auto flex items-center gap-1.5">
+        <span className="mono-label !text-[9px] text-foreground/50 mr-1">
+          {connected ? (health === "error" ? "ERROR" : "CONNECTED") : "READY"}
+        </span>
+        <button
+          className="px-2 py-1 border border-hairline rounded text-[11px] font-sans tracking-wider hover:border-teal hover:text-teal transition-colors disabled:opacity-40"
+          disabled={busy !== null}
+          onClick={() =>
+            run("connect", async () => {
+              const { authorizationUrl } = await youtube.connect(brandKey);
               window.location.href = authorizationUrl;
               onChanged();
             })
