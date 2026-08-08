@@ -1441,6 +1441,36 @@ export type Database = {
           },
         ]
       }
+      notification_state: {
+        Row: {
+          archived_at: string | null
+          created_at: string
+          id: string
+          notification_key: string
+          read_at: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          archived_at?: string | null
+          created_at?: string
+          id?: string
+          notification_key: string
+          read_at?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          archived_at?: string | null
+          created_at?: string
+          id?: string
+          notification_key?: string
+          read_at?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       organizations: {
         Row: {
           city: string | null
