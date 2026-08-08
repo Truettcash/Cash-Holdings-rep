@@ -1,8 +1,3 @@
-Library
-/
-index_instagram_start.ts
-
-
 // Supabase Edge Function: integrations
 // Routes:
 // - GET /health
