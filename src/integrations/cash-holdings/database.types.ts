@@ -12,6 +12,223 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "14.5"
   }
+  analytics: {
+    Tables: {
+      [_ in never]: never
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      activity_series: {
+        Args: {
+          p_brand_key: string
+          p_end_at: string
+          p_granularity: string
+          p_start_at: string
+        }
+        Returns: {
+          brand_key: string
+          bucket_start: string
+          event_count: number
+          event_type: string
+        }[]
+      }
+      brand_performance: {
+        Args: { p_end_at: string; p_start_at: string }
+        Returns: {
+          active_projects: number
+          average_qualification_score: number
+          booked_count: number
+          booking_conversion_rate: number
+          brand_key: string
+          completed_projects: number
+          completed_tasks: number
+          engagement_count: number
+          open_deal_value: number
+          open_tasks: number
+          won_deal_value: number
+        }[]
+      }
+      brands_health: {
+        Args: { p_end_at: string; p_start_at: string }
+        Returns: Json
+      }
+      brands_metrics: {
+        Args: {
+          p_brand_key: string
+          p_end_at: string
+          p_granularity?: string
+          p_start_at: string
+        }
+        Returns: Json
+      }
+      brands_performance: {
+        Args: { p_end_at: string; p_start_at: string }
+        Returns: Json
+      }
+      crm_engagements: {
+        Args: {
+          p_brand_key: string
+          p_end_at: string
+          p_limit?: number
+          p_start_at: string
+        }
+        Returns: Json
+      }
+      crm_pipeline: {
+        Args: { p_brand_key: string; p_end_at: string; p_start_at: string }
+        Returns: Json
+      }
+      crm_qualification: {
+        Args: { p_brand_key: string; p_end_at: string; p_start_at: string }
+        Returns: Json
+      }
+      dashboard_activity: {
+        Args: {
+          p_brand_key: string
+          p_end_at: string
+          p_limit?: number
+          p_start_at: string
+        }
+        Returns: Json
+      }
+      dashboard_insights: {
+        Args: { p_brand_key: string; p_end_at: string; p_start_at: string }
+        Returns: Json
+      }
+      dashboard_morning_brief: {
+        Args: { p_brand_key: string; p_end_at: string; p_start_at: string }
+        Returns: Json
+      }
+      dashboard_notifications: {
+        Args: { p_brand_key: string; p_end_at: string; p_start_at: string }
+        Returns: Json
+      }
+      dashboard_summary: {
+        Args: { p_brand_key: string; p_end_at: string; p_start_at: string }
+        Returns: Json
+      }
+      engagement_summary: {
+        Args: { p_brand_key: string; p_end_at: string; p_start_at: string }
+        Returns: {
+          average_qualification_score: number
+          booked_engagements: number
+          booking_conversion_rate: number
+          new_engagements: number
+          qualified_engagements: number
+          scheduled_engagements: number
+          total_engagements: number
+        }[]
+      }
+      engagement_volume_series: {
+        Args: {
+          p_brand_key: string
+          p_end_at: string
+          p_granularity: string
+          p_start_at: string
+        }
+        Returns: {
+          average_qualification_score: number
+          booked_count: number
+          bucket_start: string
+          engagement_count: number
+          qualified_count: number
+        }[]
+      }
+      get_brand_performance: {
+        Args: { p_end_at: string; p_start_at: string }
+        Returns: Json
+      }
+      get_dashboard_summary: {
+        Args: { p_brand_key: string; p_end_at: string; p_start_at: string }
+        Returns: Json
+      }
+      get_engagement_series: {
+        Args: {
+          p_brand_key: string
+          p_end_at: string
+          p_granularity?: string
+          p_start_at: string
+        }
+        Returns: Json
+      }
+      get_engagement_summary: {
+        Args: { p_brand_key: string; p_end_at: string; p_start_at: string }
+        Returns: Json
+      }
+      get_metric_trends: {
+        Args: {
+          p_brand_key: string
+          p_end_at: string
+          p_granularity?: string
+          p_start_at: string
+        }
+        Returns: Json
+      }
+      get_morning_brief: {
+        Args: { p_brand_key: string; p_end_at: string; p_start_at: string }
+        Returns: Json
+      }
+      get_notifications: {
+        Args: { p_brand_key: string; p_end_at: string; p_start_at: string }
+        Returns: Json
+      }
+      get_pipeline_distribution: {
+        Args: { p_brand_key: string; p_end_at: string; p_start_at: string }
+        Returns: Json
+      }
+      get_project_summary: {
+        Args: { p_brand_key: string; p_end_at: string; p_start_at: string }
+        Returns: Json
+      }
+      get_recent_activity: {
+        Args: {
+          p_brand_key: string
+          p_end_at: string
+          p_limit?: number
+          p_start_at: string
+        }
+        Returns: Json
+      }
+      get_task_summary: {
+        Args: { p_brand_key: string; p_end_at: string; p_start_at: string }
+        Returns: Json
+      }
+      pipeline_distribution: {
+        Args: { p_brand_key: string; p_end_at: string; p_start_at: string }
+        Returns: {
+          brand_key: string
+          count: number
+          pipeline_stage: string
+          status: string
+        }[]
+      }
+      projects_overview: {
+        Args: { p_brand_key: string; p_end_at: string; p_start_at: string }
+        Returns: Json
+      }
+      projects_progress: {
+        Args: {
+          p_brand_key: string
+          p_end_at: string
+          p_granularity?: string
+          p_start_at: string
+        }
+        Returns: Json
+      }
+      projects_workload: {
+        Args: { p_brand_key: string; p_end_at: string; p_start_at: string }
+        Returns: Json
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
   public: {
     Tables: {
       activities: {
@@ -2065,6 +2282,9 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
+  analytics: {
+    Enums: {},
+  },
   public: {
     Enums: {
       app_role: ["owner"],
