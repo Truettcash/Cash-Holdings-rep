@@ -22,31 +22,88 @@ export type InstagramStatus = {
   written?: number;
 };
 
-type Action = "connect" | "status" | "sync" | "disconnect";
+type ConnectStartResponse = {
+  authorization_url?: string;
+  error?: string;
+};
 
-async function invoke<T>(action: Action, brandKey: string | null, extra: Record<string, unknown> = {}) {
-  const { data, error } = await cashHoldingsSupabase.functions.invoke<T>("instagram-integrations", {
-    body: { action, brandKey, ...extra },
-  });
+async function resolveInstagramChannelId(brandKey: string | null): Promise<string> {
+  if (!brandKey) {
+    throw new Error("Brand key is required to start Instagram connect.");
+  }
+
+  const { data: slugMatch, error: slugError } = await cashHoldingsSupabase
+    .from("brands")
+    .select("id")
+    .eq("slug", brandKey)
+    .maybeSingle();
+  if (slugError) throw slugError;
+
+  let brandId = slugMatch?.id ?? null;
+  if (!brandId) {
+    const { data: keyMatch, error: keyError } = await cashHoldingsSupabase
+      .from("brands")
+      .select("id")
+      .eq("key", brandKey)
+      .maybeSingle();
+    if (keyError) throw keyError;
+    brandId = keyMatch?.id ?? null;
+  }
+
+  if (!brandId) {
+    throw new Error("Brand not found for Instagram connect.");
+  }
+
+  const { data: channel, error: channelError } = await cashHoldingsSupabase
+    .from("channels")
+    .select("id")
+    .eq("brand_id", brandId)
+    .eq("provider", "instagram")
+    .is("archived_at", null)
+    .order("updated_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (channelError) throw channelError;
+
+  if (!channel?.id) {
+    throw new Error("No active Instagram channel is configured for this brand.");
+  }
+
+  return channel.id;
+}
+
+async function connectStart(channelId: string) {
+  const { data, error } = await cashHoldingsSupabase.functions.invoke<ConnectStartResponse>(
+    "instagram-integrations/connect/start",
+    {
+      body: { channel_id: channelId },
+    },
+  );
   if (error) throw error;
-  if (!data) throw new Error(`No response from instagram-integrations.${action}`);
-  return data;
+
+  const authorizationUrl = typeof data?.authorization_url === "string"
+    ? data.authorization_url
+    : null;
+  if (!authorizationUrl) {
+    throw new Error("Instagram connect did not return authorization_url.");
+  }
+
+  return { authorizationUrl, channelId };
 }
 
 export const instagram = {
-  /** Returns the Instagram authorization URL; the caller navigates to it. */
-  connect: (brandKey: string | null) =>
-    invoke<{ authorizationUrl: string; redirectUri: string; expiresAt: string }>("connect", brandKey, {
-      returnOrigin: window.location.origin,
-    }),
-  status: (brandKey: string | null) => invoke<InstagramStatus>("status", brandKey),
-  sync: (brandKey: string | null) => invoke<InstagramStatus>("sync", brandKey),
-  disconnect: (brandKey: string | null) => invoke<InstagramStatus>("disconnect", brandKey),
+  /** Starts deployed Instagram OAuth using POST /connect/start with channel_id. */
+  connect: async (brandKey: string | null) => {
+    const channelId = await resolveInstagramChannelId(brandKey);
+    return connectStart(channelId);
+  },
 };
 
 export const instagramStatusQuery = (brandKey: string | null) =>
   queryOptions({
     queryKey: ["instagram-status", brandKey ?? "all"] as const,
-    queryFn: () => instagram.status(brandKey),
+    queryFn: async () => {
+      throw new Error("Instagram status mutation endpoint is not available in production.");
+    },
     retry: false,
   });

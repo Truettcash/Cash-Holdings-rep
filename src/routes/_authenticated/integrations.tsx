@@ -2,13 +2,16 @@ import { createFileRoute, useSearch } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Instagram, RefreshCw, Link2, Unlink, AlertTriangle, ShoppingBag } from "lucide-react";
+import { Instagram, Link2, AlertTriangle } from "lucide-react";
 import { q } from "@/lib/data";
-import { instagram, type InstagramStatus } from "@/lib/integrations/instagram";
-import { ebay, EBAY_PRIMARY_BRAND_KEY } from "@/lib/integrations/ebay";
+import { instagram } from "@/lib/integrations/instagram";
 import { integrationAccountsQuery, integrationSyncRunsQuery } from "@/lib/integrations/queries";
 import { integrationConnector, connectorHealth } from "@/lib/integrations/connector";
-import type { IntegrationProvider, IntegrationStatus } from "@/lib/integrations/types";
+import type {
+  IntegrationAccountSafe,
+  IntegrationProvider,
+  IntegrationStatus,
+} from "@/lib/integrations/types";
 import { Surface, SkeletonRows, EmptyState } from "@/components/ui-bits";
 import { IntegrationCard, type IntegrationCardHealth } from "@/components/integrations/integration-card";
 import { CONNECTED_CATALOG, AVAILABLE_CATALOG, FUTURE_CATALOG } from "@/components/integrations/catalog";
@@ -57,22 +60,17 @@ const UNWIRED_NOTICE: Record<string, string> = {
   calendly: "Calendly isn't wired to the connector service yet.",
 };
 
-type ProviderClient = {
-  status: (brandKey: string) => Promise<ProviderStatus>;
-  connect: (brandKey: string) => Promise<{ authorizationUrl: string }>;
-  sync: (brandKey: string) => Promise<ProviderStatus>;
-  disconnect: (brandKey: string) => Promise<ProviderStatus>;
-};
-
-type ProviderStatus = Pick<
-  InstagramStatus,
-  "connected" | "accountUsername" | "lastSyncedAt" | "lastError"
-> & { written?: number };
+function statusTone(status: string | null): IntegrationCardHealth {
+  if (!status) return "unknown";
+  if (status === "error" || status === "revoked") return "error";
+  if (status === "connected") return "ok";
+  return "unknown";
+}
 
 function IntegrationsPage() {
   const search = useSearch({ from: "/_authenticated/integrations" });
   const qc = useQueryClient();
-  const [expanded, setExpanded] = useState<"instagram" | "ebay" | null>(null);
+  const [expanded, setExpanded] = useState<"instagram" | null>(null);
 
   const brands = useQuery({ queryKey: ["brands"], queryFn: q.brands });
   const runs = useQuery(integrationSyncRunsQuery(undefined, 12));
@@ -96,10 +94,6 @@ function IntegrationsPage() {
     () => (accounts.data ?? []).filter((a) => a.provider === "instagram"),
     [accounts.data]
   );
-  const ebayAccounts = useMemo(
-    () => (accounts.data ?? []).filter((a) => a.provider === "ebay"),
-    [accounts.data]
-  );
 
   const summarize = (rows: typeof instagramAccounts) => {
     const connectedRows = rows.filter((r) => r.status === "connected");
@@ -113,7 +107,22 @@ function IntegrationsPage() {
   };
 
   const instagramSummary = summarize(instagramAccounts);
-  const ebaySummary = summarize(ebayAccounts);
+
+  const instagramByBrand = useMemo(() => {
+    const map = new Map<string, IntegrationAccountSafe>();
+    for (const row of instagramAccounts) {
+      if (!row.brand_key) continue;
+      const current = map.get(row.brand_key);
+      if (!current) {
+        map.set(row.brand_key, row);
+        continue;
+      }
+      if (current.status !== "connected" && row.status === "connected") {
+        map.set(row.brand_key, row);
+      }
+    }
+    return map;
+  }, [instagramAccounts]);
 
   return (
     <div className="space-y-6">
@@ -194,18 +203,8 @@ function IntegrationsPage() {
                     key={entry.id}
                     icon={entry.icon}
                     name={entry.name}
-                    description={entry.description}
-                    state={ebaySummary.connected ? "connected" : "available"}
-                    accountLabel={
-                      ebaySummary.connected
-                        ? `${EBAY_PRIMARY_BRAND_KEY}`
-                        : undefined
-                    }
-                    lastSyncedAt={ebaySummary.lastSyncedAt}
-                    health={ebaySummary.lastError ? "error" : "ok"}
-                    errorMessage={ebaySummary.lastError}
-                    onConnect={() => setExpanded("ebay")}
-                    onConfigure={() => setExpanded(expanded === "ebay" ? null : "ebay")}
+                    description={`${entry.description} Currently unavailable in production.`}
+                    state="coming-soon"
                   />
                 );
               }
@@ -265,42 +264,17 @@ function IntegrationsPage() {
             </div>
           </div>
           {(brands.data ?? []).map((b) => (
-            <BrandProviderRow
+            <InstagramBrandRow
               key={b.id}
-              client={instagram as unknown as ProviderClient}
-              label="Instagram"
               brandKey={b.slug}
               name={b.name}
+              snapshot={instagramByBrand.get(b.slug) ?? null}
               onChanged={() => {
                 analyticsRefresh.integrationSynced(qc);
               }}
             />
           ))}
           {brands.isLoading && <SkeletonRows rows={3} className="p-3" />}
-        </section>
-      )}
-
-      {expanded === "ebay" && (
-        <section className="glass-panel rounded-lg divide-y divide-hairline ch-fade-in">
-          <div className="px-3 py-2 flex items-center gap-2">
-            <ShoppingBag className="h-3.5 w-3.5 text-teal" />
-            <div className="mono-label !text-[9px]">EBAY · MARKETPLACE OPS</div>
-            <div className="ml-auto mono-label !text-[9px] text-foreground/50">
-              PRIMARY · {EBAY_PRIMARY_BRAND_KEY.toUpperCase()}
-            </div>
-          </div>
-          {(brands.data ?? []).map((b) => (
-            <BrandProviderRow
-              key={b.id}
-              client={ebay as unknown as ProviderClient}
-              label="eBay"
-              brandKey={b.slug}
-              name={b.name}
-              onChanged={() => {
-                analyticsRefresh.integrationSynced(qc);
-              }}
-            />
-          ))}
         </section>
       )}
 
@@ -426,49 +400,43 @@ function GenericProviderCard({
   );
 }
 
-function BrandProviderRow({
-  client,
-  label,
+function InstagramBrandRow({
   brandKey,
   name,
+  snapshot,
   onChanged,
 }: {
-  client: ProviderClient;
-  label: string;
   brandKey: string;
   name: string;
+  snapshot: IntegrationAccountSafe | null;
   onChanged: () => void;
 }) {
-  const [status, setStatus] = useState<ProviderStatus | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
-  const [unavailable, setUnavailable] = useState<string | null>(null);
-
-  const load = async () => {
-    try {
-      setStatus(await client.status(brandKey));
-      setUnavailable(null);
-    } catch (err: any) {
-      setUnavailable(err?.message ?? "Status unavailable");
-    }
-  };
-
-  useEffect(() => {
-    void load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [brandKey, label]);
+  const [localError, setLocalError] = useState<string | null>(null);
 
   const run = async (label: string, fn: () => Promise<void>) => {
     setBusy(label);
+    setLocalError(null);
     try {
       await fn();
     } catch (err: any) {
-      toast.error(err?.message ?? "Action failed");
+      const message = err?.message ?? "Action failed";
+      setLocalError(message);
+      toast.error(message);
     } finally {
       setBusy(null);
     }
   };
 
-  const connected = status?.connected ?? false;
+  const connected = snapshot?.status === "connected";
+  const accountUsername = snapshot?.account_username ?? snapshot?.external_account_id ?? null;
+  const lastSyncedAt = snapshot?.last_synced_at ?? null;
+  const errorMessage = localError ?? snapshot?.last_error ?? null;
+  const health = statusTone(snapshot?.status ?? null);
+  const connectionLabel =
+    snapshot?.status === "connected"
+      ? ` · ${snapshot.account_username ? `@${snapshot.account_username}` : "connected"}`
+      : " · not connected";
 
   return (
     <div className="px-3 py-2 flex items-center gap-3">
@@ -477,64 +445,35 @@ function BrandProviderRow({
         <div className="text-[13px] leading-none">{name}</div>
         <div className="mono-label !text-[9px] text-foreground/50 mt-1">
           {brandKey}
-          {status?.accountUsername ? ` · @${status.accountUsername}` : " · not connected"}
-          {status?.lastSyncedAt ? ` · synced ${new Date(status.lastSyncedAt).toLocaleString()}` : ""}
+          {connectionLabel}
+          {lastSyncedAt ? ` · synced ${new Date(lastSyncedAt).toLocaleString()}` : ""}
+          {accountUsername && !connected ? ` · ${accountUsername}` : ""}
         </div>
       </div>
-      {(status?.lastError || unavailable) && (
+      {errorMessage && (
         <span className="flex items-center gap-1 text-[11px] text-amber-400/80 truncate max-w-[280px]">
           <AlertTriangle className="h-3 w-3 shrink-0" />
-          {status?.lastError ?? unavailable}
+          {errorMessage}
         </span>
       )}
       <div className="ml-auto flex items-center gap-1.5">
-        {!connected ? (
-          <button
-            className="px-2 py-1 border border-hairline rounded text-[11px] font-sans tracking-wider hover:border-teal hover:text-teal transition-colors disabled:opacity-40"
-            disabled={busy !== null}
-            onClick={() =>
-              run("connect", async () => {
-                const { authorizationUrl } = await client.connect(brandKey);
-                window.location.href = authorizationUrl;
-              })
-            }
-          >
-            <Link2 className="h-3 w-3 inline mr-1" />
-            {busy === "connect" ? "OPENING…" : "CONNECT"}
-          </button>
-        ) : (
-          <>
-            <button
-              className="px-2 py-1 border border-hairline rounded text-[11px] font-sans tracking-wider hover:border-teal hover:text-teal transition-colors disabled:opacity-40"
-              disabled={busy !== null}
-              onClick={() =>
-                run("sync", async () => {
-                  const result = await client.sync(brandKey);
-                  setStatus(result);
-                  onChanged();
-                  toast.success(`Sync complete · ${result.written ?? 0} metrics written`);
-                })
-              }
-            >
-              <RefreshCw className={"h-3 w-3 inline mr-1 " + (busy === "sync" ? "animate-spin" : "")} />
-              SYNC
-            </button>
-            <button
-              className="px-2 py-1 border border-hairline rounded text-[11px] font-sans tracking-wider text-foreground/60 hover:border-red-500/60 hover:text-red-400 transition-colors disabled:opacity-40"
-              disabled={busy !== null}
-              onClick={() =>
-                run("disconnect", async () => {
-                  setStatus(await client.disconnect(brandKey));
-                  onChanged();
-                  toast.success(`${label} disconnected`);
-                })
-              }
-            >
-              <Unlink className="h-3 w-3 inline mr-1" />
-              DISCONNECT
-            </button>
-          </>
-        )}
+        <span className="mono-label !text-[9px] text-foreground/50 mr-1">
+          {connected ? (health === "error" ? "ERROR" : "CONNECTED") : "READY"}
+        </span>
+        <button
+          className="px-2 py-1 border border-hairline rounded text-[11px] font-sans tracking-wider hover:border-teal hover:text-teal transition-colors disabled:opacity-40"
+          disabled={busy !== null}
+          onClick={() =>
+            run("connect", async () => {
+              const { authorizationUrl } = await instagram.connect(brandKey);
+              window.location.href = authorizationUrl;
+              onChanged();
+            })
+          }
+        >
+          <Link2 className="h-3 w-3 inline mr-1" />
+          {busy === "connect" ? "OPENING…" : connected ? "RECONNECT" : "CONNECT"}
+        </button>
       </div>
     </div>
   );
