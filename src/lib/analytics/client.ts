@@ -4,6 +4,18 @@
  * client, no second auth session, no new storage key.
  */
 import { cashHoldingsSupabase } from "@/integrations/cash-holdings/client";
+import type { Database } from "@/integrations/cash-holdings/database.types";
+
+export type AnalyticsFunctions = Database["analytics"]["Functions"];
+export type AnalyticsFunctionName = keyof AnalyticsFunctions;
+type NullableArg<T> = T | null;
+export type AnalyticsFunctionArgs<Name extends AnalyticsFunctionName> = Partial<{
+  [Key in keyof AnalyticsFunctions[Name]["Args"]]: NullableArg<
+    AnalyticsFunctions[Name]["Args"][Key]
+  >;
+}>;
+export type AnalyticsFunctionReturns<Name extends AnalyticsFunctionName> =
+  AnalyticsFunctions[Name]["Returns"];
 
 export type AnalyticsFailure =
   /** schema not exposed to the Data API */
@@ -71,11 +83,13 @@ const MESSAGES: Record<AnalyticsFailure, string> = {
 /** Schema-scoped handle. Functions are called by unqualified name. */
 const analyticsSchema = () => cashHoldingsSupabase.schema("analytics");
 
-export async function analyticsRpc<T>(
-  fn: string,
-  params: Record<string, unknown> = {},
-): Promise<T> {
-  const { data, error } = await analyticsSchema().rpc(fn, params);
+export async function analyticsRpc<Name extends AnalyticsFunctionName>(
+  fn: Name,
+  params?: AnalyticsFunctionArgs<Name>,
+): Promise<AnalyticsFunctionReturns<Name>> {
+  const rpcParams = params as AnalyticsFunctions[Name]["Args"] | undefined;
+  const { data, error } =
+    rpcParams === undefined ? await analyticsSchema().rpc(fn) : await analyticsSchema().rpc(fn, rpcParams);
   if (error) {
     const kind = classify(error.code, error.message ?? "");
     throw new AnalyticsRpcError(
@@ -88,7 +102,7 @@ export async function analyticsRpc<T>(
       error.hint ?? null,
     );
   }
-  return data as T;
+  return data as AnalyticsFunctionReturns<Name>;
 }
 
 export const isDev = import.meta.env.DEV;

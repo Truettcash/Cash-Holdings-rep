@@ -1,6 +1,11 @@
 import { useQuery, type UseQueryOptions } from "@tanstack/react-query";
 import { analyticsKey, type AnalyticsScope } from "./keys";
-import { loadAnalyticsModule, type AnalyticsFallback, type AnalyticsResult } from "./service";
+import {
+  loadAnalyticsModule,
+  type AnalyticsFallback,
+  type AnalyticsResult,
+  type ModuleFunctionReturns,
+} from "./service";
 import type { AnalyticsModule } from "./modules";
 
 /** Perceived-speed tiers — summaries first, deep analytics last. */
@@ -25,22 +30,22 @@ const PRIORITY: Record<AnalyticsModule, number> = {
  * One analytics module, loaded independently. Keeps the previous response
  * visible during filter transitions so panels never flash empty.
  */
-export function useAnalyticsModule<T>(
-  module: AnalyticsModule,
+export function useAnalyticsModule<M extends AnalyticsModule>(
+  module: M,
   scope: AnalyticsScope = {},
   options?: {
-    fallback?: AnalyticsFallback<T>;
+    fallback?: AnalyticsFallback<ModuleFunctionReturns<M>>;
     enabled?: boolean;
     staleTime?: number;
   },
 ) {
   const query = useQuery({
     queryKey: analyticsKey(module, scope),
-    queryFn: () => loadAnalyticsModule<T>(module, scope, options?.fallback),
+    queryFn: () => loadAnalyticsModule(module, scope, options?.fallback),
     enabled: options?.enabled ?? true,
     staleTime: options?.staleTime ?? (PRIORITY[module] <= 1 ? 15_000 : 60_000),
     placeholderData: (prev) => prev,
-  } satisfies UseQueryOptions<AnalyticsResult<T>>);
+  } satisfies UseQueryOptions<AnalyticsResult<ModuleFunctionReturns<M>>>);
 
   return {
     data: query.data?.data ?? null,

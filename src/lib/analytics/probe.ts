@@ -49,7 +49,7 @@ export async function probeAnalyticsModule(
 
   const started = Date.now();
   try {
-    const data = await analyticsRpc<unknown>(fn, params);
+    const data = await analyticsRpc(fn, params);
     const { rootKeys, count } = describe(data);
     return {
       module,

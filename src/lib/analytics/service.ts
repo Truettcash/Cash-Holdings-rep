@@ -7,7 +7,14 @@
  * raw-table query that already ships in this app — isolated to this file so no
  * calculation is duplicated in a component.
  */
-import { analyticsRpc, AnalyticsRpcError, isDev } from "./client";
+import {
+  analyticsRpc,
+  AnalyticsRpcError,
+  isDev,
+  type AnalyticsFunctionArgs,
+  type AnalyticsFunctionName,
+  type AnalyticsFunctionReturns,
+} from "./client";
 import {
   ANALYTICS_MODULES,
   ANALYTICS_SIGNATURES,
@@ -34,7 +41,10 @@ export type AnalyticsFallback<T> = (scope: AnalyticsScope) => Promise<T>;
  * Builds exactly the argument set the live function declares. PostgREST resolves
  * overloads by argument names, so extra keys 404 and missing keys change target.
  */
-function toParams(module: AnalyticsModule, scope: AnalyticsScope): AnalyticsParams {
+function toParams<M extends AnalyticsModule>(
+  module: M,
+  scope: AnalyticsScope,
+): AnalyticsFunctionArgs<ModuleFunctionName<M>> {
   const allowed = ANALYTICS_SIGNATURES[module];
   const p: AnalyticsParams = {};
   if (allowed.includes("p_brand_key")) p.p_brand_key = scope.brandKey ?? null;
@@ -42,7 +52,7 @@ function toParams(module: AnalyticsModule, scope: AnalyticsScope): AnalyticsPara
   if (allowed.includes("p_end_at")) p.p_end_at = scope.endAt ?? null;
   if (allowed.includes("p_granularity")) p.p_granularity = scope.granularity ?? "day";
   if (allowed.includes("p_limit")) p.p_limit = scope.limit ?? 50;
-  return p;
+  return p as AnalyticsFunctionArgs<ModuleFunctionName<M>>;
 }
 
 /** Dev-only visibility into the active source per module. */
@@ -80,6 +90,12 @@ export type AnalyticsSurfaceResult<T> = AnalyticsResult<T> & {
   malformed: string | null;
 };
 
+type ModuleFunctionName<M extends AnalyticsModule> = (typeof ANALYTICS_MODULES)[M] &
+  AnalyticsFunctionName;
+export type ModuleFunctionReturns<M extends AnalyticsModule> = AnalyticsFunctionReturns<
+  ModuleFunctionName<M>
+>;
+
 /**
  * Adapter-aware load. The RPC is used only when the call AND the adapter both
  * succeed; any other outcome degrades to the existing raw-table fallback. The
@@ -101,7 +117,7 @@ export async function loadAnalyticsSurface<M extends AnalyticsModule>(
   let rejection: string | null = null;
 
   try {
-    const payload = await analyticsRpc<unknown>(fn, toParams(module, scope));
+    const payload = await analyticsRpc(fn, toParams(module, scope));
     if (isDev) shapes.set(module, describeShape(payload));
 
     const result = adapt(payload);
@@ -141,14 +157,14 @@ export async function loadAnalyticsSurface<M extends AnalyticsModule>(
   }
 }
 
-export async function loadAnalyticsModule<T>(
-  module: AnalyticsModule,
+export async function loadAnalyticsModule<M extends AnalyticsModule>(
+  module: M,
   scope: AnalyticsScope = {},
-  fallback?: AnalyticsFallback<T>,
-): Promise<AnalyticsResult<T>> {
+  fallback?: AnalyticsFallback<ModuleFunctionReturns<M>>,
+): Promise<AnalyticsResult<ModuleFunctionReturns<M>>> {
   const fn = ANALYTICS_MODULES[module];
   try {
-    const data = await analyticsRpc<T>(fn, toParams(module, scope));
+    const data = await analyticsRpc(fn, toParams(module, scope));
     record(module, "rpc");
     // RPC succeeded — the raw-table aggregation is never executed for this module.
     return { data, source: "rpc", failure: null };

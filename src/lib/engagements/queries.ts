@@ -1,6 +1,7 @@
 import { queryOptions } from "@tanstack/react-query";
 import { cashHoldingsSupabase } from "@/integrations/cash-holdings/client";
 import { SCHEDULED_STAGES, tierScoreRange } from "./domain";
+import type { Database } from "@/integrations/cash-holdings/database.types";
 import type {
   EngagementDetailRow,
   EngagementEventRow,
@@ -11,6 +12,10 @@ import type {
 
 const TABLE_ENGAGEMENTS = "engagements";
 const TABLE_EVENTS = "engagement_events";
+type EngagementRelation = keyof Pick<
+  Database["public"]["Tables"],
+  typeof TABLE_ENGAGEMENTS | typeof TABLE_EVENTS
+>;
 
 /** Only the columns each interface needs — raw_submission stays out of list views. */
 export const LIST_COLUMNS =
@@ -21,23 +26,6 @@ export const DETAIL_COLUMNS = `${LIST_COLUMNS},qualification_details,operational
 export const EVENT_COLUMNS = "id,engagement_id,event_type,created_at,source,metadata";
 
 type QueryResult = { data: unknown; error: { message: string } | null };
-
-/**
- * Minimal structural view of a PostgREST filter builder. The shared intake tables
- * are not part of the generated Database type, so this keeps the chain typed
- * without leaking `any` into the engagement pipeline.
- */
-type FilterBuilder = PromiseLike<QueryResult> & {
-  eq(column: string, value: string | number | boolean): FilterBuilder;
-  gte(column: string, value: string | number): FilterBuilder;
-  lte(column: string, value: string | number): FilterBuilder;
-  lt(column: string, value: string | number): FilterBuilder;
-  is(column: string, value: null): FilterBuilder;
-  or(filters: string): FilterBuilder;
-  order(column: string, opts?: { ascending?: boolean }): FilterBuilder;
-  limit(count: number): FilterBuilder;
-  maybeSingle(): PromiseLike<QueryResult>;
-};
 
 async function rows<T>(builder: PromiseLike<QueryResult>): Promise<T[]> {
   const { data, error } = await builder;
@@ -51,8 +39,11 @@ async function single<T>(builder: PromiseLike<QueryResult>): Promise<T | null> {
   return (data ?? null) as T | null;
 }
 
-const select = (name: string, columns: string): FilterBuilder =>
-  cashHoldingsSupabase.from(name).select(columns) as unknown as FilterBuilder;
+const select = <Relation extends EngagementRelation>(relation: Relation, columns: string) =>
+  cashHoldingsSupabase.from(relation).select(columns);
+
+const selectEngagements = (columns: string) => select(TABLE_ENGAGEMENTS, columns);
+type EngagementBuilder = ReturnType<typeof selectEngagements>;
 
 export function engagementFilterKey(f: EngagementFilters = {}) {
   return {
@@ -65,7 +56,7 @@ export function engagementFilterKey(f: EngagementFilters = {}) {
   };
 }
 
-function applyFilters(query: FilterBuilder, f: EngagementFilters): FilterBuilder {
+function applyFilters(query: EngagementBuilder, f: EngagementFilters): EngagementBuilder {
   let q = query;
   if (f.brand && f.brand !== "all") q = q.eq("brand_key", f.brand);
   if (f.status) q = q.eq("status", f.status);
