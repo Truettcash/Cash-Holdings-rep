@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
+import type { Database } from "./database.types";
 
 const url = import.meta.env.VITE_CASH_SUPABASE_URL as string;
 const key = import.meta.env.VITE_CASH_SUPABASE_PUBLISHABLE_KEY as string;
@@ -11,7 +12,7 @@ if (!url || !key) {
   );
 }
 
-export const cashHoldingsSupabase = createClient(url, key, {
+export const cashHoldingsSupabase = createClient<Database>(url, key, {
   auth: {
     storageKey: "cash-holdings-auth",
     persistSession: true,
