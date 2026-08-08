@@ -3,6 +3,12 @@
 These files are **not** deployed by Lovable. They target the external Cash
 Holdings Supabase project (`ldijllskwwmyhhbzspmb`) and must be deployed there.
 
+## Current deployed-source status
+
+- `edge-functions/integrations/index.ts` now reflects deployed production source.
+- `edge-functions/instagram-integrations/index.ts` now reflects deployed production source.
+- `edge-functions/ebay-integrations/index.ts` is retained as recovered candidate source and is currently **not deployed**.
+
 ## 1. Database
 
 Run `db/integration-layer.sql` in the SQL editor. It is idempotent and additive:
