@@ -16,7 +16,7 @@ import type {
  * server-side and redirects back to the dashboard.
  */
 
-type ConnectorAction = "connect" | "status" | "sync" | "refresh" | "disconnect" | "health";
+type ConnectorAction = "connect" | "status" | "sync" | "refresh" | "disconnect";
 
 async function invoke<T>(
   action: ConnectorAction,
@@ -61,5 +61,11 @@ export type ConnectorHealth = {
  * never values.
  */
 export async function connectorHealth(): Promise<ConnectorHealth> {
-  return invoke<ConnectorHealth>("health", "youtube");
+  const { data, error } = await cashHoldingsSupabase.functions.invoke<ConnectorHealth>(
+    "integrations/health",
+    { method: "GET" },
+  );
+  if (error) throw error;
+  if (!data) throw new Error("No response from integrations/health");
+  return data;
 }

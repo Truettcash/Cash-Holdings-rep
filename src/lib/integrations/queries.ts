@@ -2,6 +2,7 @@ import { queryOptions } from "@tanstack/react-query";
 import { cashHoldingsSupabase } from "@/integrations/cash-holdings/client";
 import { integrationConnector } from "./connector";
 import type {
+  IntegrationChannel,
   IntegrationConnectionSafe,
   IntegrationAccountSafe,
   IntegrationProvider,
@@ -11,6 +12,9 @@ import type {
 
 const CONNECTION_COLUMNS =
   "id, provider, channel_id, connection_status, provider_external_account_id, granted_scopes, access_token_expires_at, last_successful_sync_at, last_sync_attempt_at, next_scheduled_sync_at, last_error_code, sync_enabled, authentication_type, environment, archived_at, created_at, updated_at";
+
+const CHANNEL_COLUMNS =
+  "id, brand_id, provider, name, external_account_id, handle_or_url, archived_at, updated_at";
 
 const SYNC_RUN_COLUMNS =
   "id, integration_connection_id, sync_type, status, requested_at, started_at, completed_at, retry_count, records_read, records_skipped, records_written, error_code, created_at";
@@ -145,6 +149,30 @@ export const integrationAccountsQuery = (brandKey?: string | null) =>
         last_synced_at: row.last_successful_sync_at,
         last_error: row.last_error_code,
         metadata: {},
+      }));
+    },
+  });
+
+export const integrationChannelsQuery = () =>
+  queryOptions({
+    queryKey: ["integration-channels"] as const,
+    queryFn: async (): Promise<IntegrationChannel[]> => {
+      const { data, error } = await cashHoldingsSupabase
+        .from("channels")
+        .select(CHANNEL_COLUMNS)
+        .is("archived_at", null)
+        .order("updated_at", { ascending: false });
+      if (error) throw error;
+
+      return (data ?? []).map((row) => ({
+        id: row.id,
+        brand_id: row.brand_id,
+        provider: isIntegrationProvider(row.provider) ? row.provider : null,
+        name: row.name,
+        external_account_id: row.external_account_id,
+        handle_or_url: row.handle_or_url,
+        archived_at: row.archived_at,
+        updated_at: row.updated_at,
       }));
     },
   });

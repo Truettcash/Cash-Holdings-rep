@@ -37,6 +37,17 @@ export type IntegrationConnectionSafe = {
   brand_key: string | null;
 };
 
+export type IntegrationChannel = {
+  id: string;
+  brand_id: string;
+  provider: IntegrationProvider | null;
+  name: string;
+  external_account_id: string | null;
+  handle_or_url: string | null;
+  archived_at: string | null;
+  updated_at: string | null;
+};
+
 /**
  * Compatibility alias while migrating account wording to connection wording.
  * Backed by connection-safe data; no direct integration_accounts dependency.

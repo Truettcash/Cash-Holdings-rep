@@ -6,9 +6,13 @@ import { Instagram, Link2, AlertTriangle } from "lucide-react";
 import { q } from "@/lib/data";
 import { instagram } from "@/lib/integrations/instagram";
 import { youtube } from "@/lib/integrations/youtube";
-import { integrationAccountsQuery, integrationSyncRunsQuery } from "@/lib/integrations/queries";
+import {
+  integrationAccountsQuery,
+  integrationChannelsQuery,
+  integrationSyncRunsQuery,
+} from "@/lib/integrations/queries";
 import { cashHoldingsSupabase } from "@/integrations/cash-holdings/client";
-import type { IntegrationAccountSafe } from "@/lib/integrations/types";
+import type { IntegrationAccountSafe, IntegrationChannel } from "@/lib/integrations/types";
 import { Surface, SkeletonRows, EmptyState } from "@/components/ui-bits";
 import { IntegrationCard, type IntegrationCardHealth } from "@/components/integrations/integration-card";
 import { CONNECTED_CATALOG, AVAILABLE_CATALOG, FUTURE_CATALOG } from "@/components/integrations/catalog";
@@ -64,6 +68,19 @@ function statusTone(status: string | null): IntegrationCardHealth {
   return "unknown";
 }
 
+function formatYoutubeScopes(scopes: string[] | null): string | null {
+  if (!scopes || scopes.length === 0) return null;
+  return scopes.join(", ");
+}
+
+function youtubeConnectionStateLabel(status: string | null): string {
+  if (status === "pending_confirmation") return "AUTHORIZATION COMPLETE · PENDING CONFIRMATION";
+  if (status === "connected") return "CONNECTED";
+  if (status === "error") return "ERROR";
+  if (status === "revoked") return "REVOKED";
+  return "READY";
+}
+
 function toErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : "Action failed";
 }
@@ -90,6 +107,7 @@ function IntegrationsPage() {
   const brands = useQuery({ queryKey: ["brands"], queryFn: q.brands });
   const runs = useQuery(integrationSyncRunsQuery(undefined, 12));
   const accounts = useQuery(integrationAccountsQuery());
+  const channels = useQuery(integrationChannelsQuery());
   const health = useQuery({
     queryKey: ["connectorHealth"],
     queryFn: deployedConnectorHealth,
@@ -104,6 +122,21 @@ function IntegrationsPage() {
     if (search.status === "error")
       toast.error(REASONS[search.reason ?? ""] ?? `${label} connection failed`);
   }, [search.integration, search.status, search.reason]);
+
+  useEffect(() => {
+    if (search.integration !== "youtube") return;
+    if (search.status === "connected") {
+      setExpanded("youtube");
+      toast.message("YouTube authorization complete. Pending confirmation.");
+      void qc.invalidateQueries({ queryKey: ["integration-accounts"] });
+      void qc.invalidateQueries({ queryKey: ["integration-connections"] });
+      void qc.invalidateQueries({ queryKey: ["integration-channels"] });
+      return;
+    }
+    if (search.status === "error") {
+      toast.error(REASONS[search.reason ?? ""] ?? "YouTube connection failed");
+    }
+  }, [qc, search.integration, search.reason, search.status]);
 
   const instagramAccounts = useMemo(
     () => (accounts.data ?? []).filter((a) => a.provider === "instagram"),
@@ -155,10 +188,26 @@ function IntegrationsPage() {
       }
       if (current.status !== "connected" && row.status === "connected") {
         map.set(row.brand_key, row);
+        continue;
+      }
+      if (current.status == null && row.status != null) {
+        map.set(row.brand_key, row);
       }
     }
     return map;
   }, [youtubeAccounts]);
+
+  const youtubeChannelsByBrand = useMemo(() => {
+    const brandSlugById = new Map((brands.data ?? []).map((brand) => [brand.id, brand.slug]));
+    const map = new Map<string, IntegrationChannel>();
+    for (const channel of channels.data ?? []) {
+      if (channel.provider !== "youtube") continue;
+      const brandSlug = brandSlugById.get(channel.brand_id);
+      if (!brandSlug || map.has(brandSlug)) continue;
+      map.set(brandSlug, channel);
+    }
+    return map;
+  }, [brands.data, channels.data]);
 
   return (
     <div className="space-y-6">
@@ -239,7 +288,7 @@ function IntegrationsPage() {
                     key={entry.id}
                     icon={entry.icon}
                     name={entry.name}
-                    description={`${entry.description} OAuth callback completion is currently limited in production.`}
+                    description={entry.description}
                     state={youtubeSummary.connected ? "connected" : "available"}
                     accountLabel={
                       youtubeSummary.connected
@@ -356,13 +405,14 @@ function IntegrationsPage() {
             </div>
           </div>
           <div className="px-3 py-2 text-[11.5px] text-muted-foreground">
-            Connect start is live, but OAuth callback completion is still limited in production.
+            OAuth authorization returns here and remains pending confirmation until the server-side connection is validated.
           </div>
           {(brands.data ?? []).map((b) => (
             <YouTubeBrandRow
               key={b.id}
               brandKey={b.slug}
               name={b.name}
+              channel={youtubeChannelsByBrand.get(b.slug) ?? null}
               snapshot={youtubeByBrand.get(b.slug) ?? null}
               onChanged={() => {
                 analyticsRefresh.integrationSynced(qc);
@@ -498,11 +548,13 @@ function InstagramBrandRow({
 function YouTubeBrandRow({
   brandKey,
   name,
+  channel,
   snapshot,
   onChanged,
 }: {
   brandKey: string;
   name: string;
+  channel: IntegrationChannel | null;
   snapshot: IntegrationAccountSafe | null;
   onChanged: () => void;
 }) {
@@ -524,14 +576,14 @@ function YouTubeBrandRow({
   };
 
   const connected = snapshot?.status === "connected";
-  const accountUsername = snapshot?.account_username ?? snapshot?.external_account_id ?? null;
+  const accountUsername = snapshot?.account_username ?? snapshot?.external_account_id ?? channel?.external_account_id ?? null;
   const lastSyncedAt = snapshot?.last_synced_at ?? null;
   const errorMessage = localError ?? snapshot?.last_error ?? null;
   const health = statusTone(snapshot?.status ?? null);
-  const connectionLabel =
-    snapshot?.status === "connected"
-      ? ` · ${snapshot.account_username ? `@${snapshot.account_username}` : "connected"}`
-      : " · not connected";
+  const connectionState = youtubeConnectionStateLabel(snapshot?.status ?? null);
+  const scopesLabel = formatYoutubeScopes(snapshot?.scopes ?? null);
+  const channelLabel = channel?.name ?? null;
+  const customUrl = channel?.handle_or_url ?? null;
 
   return (
     <div className="px-3 py-2 flex items-center gap-3">
@@ -540,9 +592,14 @@ function YouTubeBrandRow({
         <div className="text-[13px] leading-none">{name}</div>
         <div className="mono-label !text-[9px] text-foreground/50 mt-1">
           {brandKey}
-          {connectionLabel}
+          {channelLabel ? ` · ${channelLabel}` : ""}
+          {accountUsername ? ` · acct ${accountUsername}` : ""}
+          {customUrl ? ` · ${customUrl}` : ""}
           {lastSyncedAt ? ` · synced ${new Date(lastSyncedAt).toLocaleString()}` : ""}
-          {accountUsername && !connected ? ` · ${accountUsername}` : ""}
+        </div>
+        <div className="mono-label !text-[9px] text-foreground/50 mt-1">
+          {connectionState}
+          {scopesLabel ? ` · scopes ${scopesLabel}` : ""}
         </div>
       </div>
       {errorMessage && (
@@ -553,21 +610,24 @@ function YouTubeBrandRow({
       )}
       <div className="ml-auto flex items-center gap-1.5">
         <span className="mono-label !text-[9px] text-foreground/50 mr-1">
-          {connected ? (health === "error" ? "ERROR" : "CONNECTED") : "READY"}
+          {connected ? (health === "error" ? "ERROR" : "CONNECTED") : connectionState}
         </span>
         <button
           className="px-2 py-1 border border-hairline rounded text-[11px] font-sans tracking-wider hover:border-teal hover:text-teal transition-colors disabled:opacity-40"
-          disabled={busy !== null}
+          disabled={busy !== null || !channel?.id}
           onClick={() =>
             run("connect", async () => {
-              const { authorizationUrl } = await youtube.connect(brandKey);
-              window.location.href = authorizationUrl;
+              if (!channel?.id) {
+                throw new Error("No active YouTube channel is configured for this brand.");
+              }
+              const { authorizationUrl } = await youtube.connect(channel.id);
+              window.location.assign(authorizationUrl);
               onChanged();
             })
           }
         >
           <Link2 className="h-3 w-3 inline mr-1" />
-          {busy === "connect" ? "OPENING…" : connected ? "RECONNECT" : "CONNECT"}
+          {busy === "connect" ? "OPENING..." : connected ? "RECONNECT" : "CONNECT"}
         </button>
       </div>
     </div>
