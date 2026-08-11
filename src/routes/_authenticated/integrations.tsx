@@ -416,6 +416,9 @@ function IntegrationsPage() {
               snapshot={youtubeByBrand.get(b.slug) ?? null}
               onChanged={() => {
                 analyticsRefresh.integrationSynced(qc);
+                void qc.invalidateQueries({ queryKey: ["integration-connections"] });
+                void qc.invalidateQueries({ queryKey: ["integration-channels"] });
+                void qc.invalidateQueries({ queryKey: ["integration-status"] });
               }}
             />
           ))}
@@ -581,6 +584,7 @@ function YouTubeBrandRow({
   const errorMessage = localError ?? snapshot?.last_error ?? null;
   const health = statusTone(snapshot?.status ?? null);
   const connectionState = youtubeConnectionStateLabel(snapshot?.status ?? null);
+  const pendingConfirmation = snapshot?.status === "pending_confirmation";
   const scopesLabel = formatYoutubeScopes(snapshot?.scopes ?? null);
   const channelLabel = channel?.name ?? null;
   const customUrl = channel?.handle_or_url ?? null;
@@ -616,10 +620,18 @@ function YouTubeBrandRow({
           className="px-2 py-1 border border-hairline rounded text-[11px] font-sans tracking-wider hover:border-teal hover:text-teal transition-colors disabled:opacity-40"
           disabled={busy !== null || !channel?.id}
           onClick={() =>
-            run("connect", async () => {
+            run(pendingConfirmation ? "confirm" : "connect", async () => {
               if (!channel?.id) {
                 throw new Error("No active YouTube channel is configured for this brand.");
               }
+
+              if (pendingConfirmation) {
+                await youtube.confirmYouTubeConnect(channel.id);
+                toast.success("YouTube connection confirmed.");
+                onChanged();
+                return;
+              }
+
               const { authorizationUrl } = await youtube.connect(channel.id);
               window.location.assign(authorizationUrl);
               onChanged();
@@ -627,7 +639,15 @@ function YouTubeBrandRow({
           }
         >
           <Link2 className="h-3 w-3 inline mr-1" />
-          {busy === "connect" ? "OPENING..." : connected ? "RECONNECT" : "CONNECT"}
+          {busy === "confirm"
+            ? "CONFIRMING..."
+            : busy === "connect"
+              ? "OPENING..."
+              : pendingConfirmation
+                ? "CONFIRM CONNECTION"
+                : connected
+                  ? "RECONNECT"
+                  : "CONNECT"}
         </button>
       </div>
     </div>

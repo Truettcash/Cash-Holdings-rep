@@ -725,6 +725,108 @@ Deno.serve(async (req) => {
 
     if (
       req.method === "POST" &&
+      pathname.includes("/connect/youtube/confirm")
+    ) {
+      const token = getBearerToken(req);
+      if (!token) return jsonError("AUTH_REQUIRED", 401);
+
+      const { data: userData, error: userError } = await supabaseAdmin.auth
+        .getUser(token);
+      if (userError || !userData?.user) {
+        return jsonError("AUTH_INVALID", 401);
+      }
+
+      const body = await req.json().catch(() => null);
+      const channelId = body?.channel_id;
+      if (!channelId || typeof channelId !== "string" || !isUuid(channelId)) {
+        return jsonError("CHANNEL_ID_REQUIRED", 400);
+      }
+
+      const { data: channel, error: channelError } = await supabaseAdmin
+        .from("channels")
+        .select("id, provider, archived_at, brands:brands(owner_user_id)")
+        .eq("id", channelId)
+        .maybeSingle();
+
+      if (channelError || !channel) {
+        return jsonError("CHANNEL_NOT_FOUND", 404);
+      }
+
+      const channelRow = channel as {
+        id: string;
+        provider: string;
+        archived_at: string | null;
+        brands: { owner_user_id: string | null } | null;
+      };
+
+      if (!channelRow.brands?.owner_user_id || channelRow.brands.owner_user_id !== userData.user.id) {
+        return jsonError("CHANNEL_NOT_FOUND", 404);
+      }
+      if (channelRow.provider !== "youtube") {
+        return jsonError("CHANNEL_PROVIDER_MISMATCH", 400);
+      }
+      if (channelRow.archived_at !== null) {
+        return jsonError("CHANNEL_ARCHIVED", 409);
+      }
+
+      const { data: connection, error: connectionError } = await supabaseAdmin
+        .from("integration_connections")
+        .select(
+          "id, channel_id, provider, connection_status, sync_enabled, provider_external_account_id, granted_scopes, provider_metadata, archived_at",
+        )
+        .eq("channel_id", channelId)
+        .eq("provider", "youtube")
+        .maybeSingle();
+
+      if (connectionError) throw connectionError;
+      if (!connection) {
+        return jsonError("YOUTUBE_CONNECTION_NOT_FOUND", 404);
+      }
+
+      if (connection.connection_status !== "pending_confirmation") {
+        return jsonError("YOUTUBE_CONNECTION_NOT_PENDING", 409);
+      }
+
+      const { data: updatedConnection, error: updateError } = await supabaseAdmin
+        .from("integration_connections")
+        .update({
+          connection_status: "connected",
+          sync_enabled: true,
+        })
+        .eq("id", connection.id)
+        .eq("provider", "youtube")
+        .eq("connection_status", "pending_confirmation")
+        .select(
+          "id, channel_id, provider, connection_status, sync_enabled, provider_external_account_id, granted_scopes, provider_metadata",
+        )
+        .maybeSingle();
+
+      if (updateError) throw updateError;
+      if (!updatedConnection) {
+        return jsonError("YOUTUBE_CONNECTION_NOT_PENDING", 409);
+      }
+
+      return jsonOk({
+        ok: true,
+        connection: {
+          id: updatedConnection.id,
+          channel_id: updatedConnection.channel_id,
+          provider: updatedConnection.provider,
+          connection_status: updatedConnection.connection_status,
+          sync_enabled: updatedConnection.sync_enabled,
+          provider_external_account_id: updatedConnection.provider_external_account_id,
+          granted_scopes: Array.isArray(updatedConnection.granted_scopes)
+            ? updatedConnection.granted_scopes
+            : [],
+          provider_metadata: isRecord(updatedConnection.provider_metadata)
+            ? updatedConnection.provider_metadata
+            : {},
+        },
+      });
+    }
+
+    if (
+      req.method === "POST" &&
       pathname.includes("/connect/instagram/start")
     ) {
       const token = getBearerToken(req);
