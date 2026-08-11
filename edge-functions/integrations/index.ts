@@ -10,6 +10,8 @@
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
+const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+const SUPABASE_SECRET_KEY = Deno.env.get("SUPABASE_SECRET_KEY");
 const SUPABASE_SECRET_KEYS_RAW = Deno.env.get("SUPABASE_SECRET_KEYS");
 const INTEGRATION_STATE_SECRET = Deno.env.get("INTEGRATION_STATE_SECRET");
 
@@ -18,28 +20,54 @@ const GOOGLE_OAUTH_CLIENT_SECRET = Deno.env.get("GOOGLE_OAUTH_CLIENT_SECRET");
 const INSTAGRAM_APP_ID = Deno.env.get("INSTAGRAM_APP_ID");
 
 if (!SUPABASE_URL) throw new Error("SUPABASE_URL is required");
-if (!SUPABASE_SECRET_KEYS_RAW) throw new Error("SUPABASE_SECRET_KEYS is required");
 if (!INTEGRATION_STATE_SECRET) throw new Error("INTEGRATION_STATE_SECRET is required");
 if (!GOOGLE_OAUTH_CLIENT_ID) throw new Error("GOOGLE_OAUTH_CLIENT_ID is required");
 if (!GOOGLE_OAUTH_CLIENT_SECRET) throw new Error("GOOGLE_OAUTH_CLIENT_SECRET is required");
 if (!INSTAGRAM_APP_ID) throw new Error("INSTAGRAM_APP_ID is required");
 
-const secretKeys = JSON.parse(SUPABASE_SECRET_KEYS_RAW);
-const serviceRoleKey =
-  secretKeys?.service_role ??
-  secretKeys?.serviceRole ??
-  secretKeys?.supabase_service_role ??
-  secretKeys?.sb_service_role ??
-  Object.entries(secretKeys).find(([key]) =>
-    key.toLowerCase().includes("service_role") ||
-    key.toLowerCase().includes("service-role")
-  )?.[1];
+function resolveSupabaseAdminKey(): string {
+  if (SUPABASE_SERVICE_ROLE_KEY) return SUPABASE_SERVICE_ROLE_KEY;
+  if (SUPABASE_SECRET_KEY) return SUPABASE_SECRET_KEY;
 
-if (!serviceRoleKey) {
-  throw new Error("Service role key not found in SUPABASE_SECRET_KEYS");
+  if (SUPABASE_SECRET_KEYS_RAW) {
+    try {
+      const parsed: unknown = JSON.parse(SUPABASE_SECRET_KEYS_RAW);
+
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+        const secretKeys = parsed as Record<string, unknown>;
+
+        const preferredNames = [
+          "default",
+          "service_role",
+          "serviceRole",
+          "supabase_service_role",
+          "sb_service_role",
+        ];
+
+        for (const name of preferredNames) {
+          const value = secretKeys[name];
+          if (typeof value === "string" && value.length > 0) {
+            return value;
+          }
+        }
+
+        const firstSecretKey = Object.values(secretKeys).find(
+          (value): value is string => typeof value === "string" && value.length > 0,
+        );
+
+        if (firstSecretKey) return firstSecretKey;
+      }
+    } catch {
+      // Fall through to the explicit configuration error below.
+    }
+  }
+
+  throw new Error(
+    "No Supabase server secret available; expected SUPABASE_SERVICE_ROLE_KEY, SUPABASE_SECRET_KEY, or SUPABASE_SECRET_KEYS",
+  );
 }
 
-const supabaseAdmin = createClient(SUPABASE_URL, serviceRoleKey, {
+const supabaseAdmin = createClient(SUPABASE_URL, resolveSupabaseAdminKey(), {
   auth: { persistSession: false },
 });
 
