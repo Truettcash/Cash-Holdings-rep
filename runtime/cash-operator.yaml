@@ -18,9 +18,10 @@ runtime:
   required_version: 1.0.3
   upstream_commit: unavailable_from_distribution
   source_path: runtime/openjarvis/installation-manifest.toml
-  state_path: generated_runtime_state
-  scheduler_state_path: generated_scheduler_database
-  bootstrap_status: blocked_until_source_and_hash_are_verified
+  state_path: "~/.openjarvis"
+  scheduler_state_path: "~/.openjarvis/scheduler.db"
+  installation_path: "~/.local/share/openjarvis/1.0.3"
+  bootstrap_status: blocked_until_cash_mcp_and_live_proof
 
 model:
   provider: CloudEngine
@@ -38,8 +39,9 @@ permissions:
   web_search: prohibited
 
 cash_mcp:
-  source_path: future runtime/cash-mcp implementation
-  project_state_path: private runtime state
+  source_path: future repo/runtime/cash-mcp implementation
+  project_state_path: "~/.cash-mcp"
+  private_state_permissions: "0700 directory, 0600 token state"
   auth_provider: dedicated_cash_user_session
   auth_refresh_token: never_commit
   access_token_environment_variable: prohibited
@@ -77,12 +79,12 @@ secrets:
   deployment_during_bootstrap: prohibited
 
 reconstruction_gates:
-  - recover_cash_mcp_source_and_commit_it
-  - recover_cash_operator_prompt_and_commit_it
-  - recover_openjarvis_1_0_3_source
-  - record_and_verify_openjarvis_upstream_commit
-  - generate_runtime_state_from_this_spec
+  - reconstruct_cash_mcp_from_gateway_contract
+  - prove_cash_mcp_contract_tests
+  - install_verified_openjarvis_1_0_3
   - perform_fresh_user_session_bootstrap
-  - prove_six_cash_mcp_tools_and_zero_native_tools
-  - prove_cloudengine_gpt_4o_mini_and_read_only_cash_data
-  - bind_scheduler_only_after_live_proof
+  - instantiate_cash_operator_from_git_spec
+  - prove_six_cash_mcp_tools_zero_native_tools
+  - prove_cloudengine_gpt_4o_mini_live_read
+  - bind_managed_agent_scheduler_by_generated_agent_id
+  - prove_one_scheduled_run

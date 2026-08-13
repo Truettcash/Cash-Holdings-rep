@@ -29,6 +29,23 @@ operation is authorized by this specification.
 `brand_id` and `project_id` are UUIDs. `slug` is a lowercase hyphenated slug.
 `limit` is an integer from 1 through 100; the gateway default is 20.
 
+## Name mapping
+
+The MCP names are intentionally distinct from the gateway action values:
+
+| Canonical MCP name | Provider-safe alias | Gateway action |
+|---|---|---|
+| `cash.list_brands` | `cash_list_brands` | `list_brands` |
+| `cash.get_brand` | `cash_get_brand` | `get_brand` |
+| `cash.list_active_projects` | `cash_list_active_projects` | `list_active_projects` |
+| `cash.get_project` | `cash_get_project` | `get_project` |
+| `cash.get_pipeline` | `cash_get_pipeline` | `get_pipeline` |
+| `cash.get_recent_activity` | `cash_get_recent_activity` | `get_recent_activity` |
+
+The adapter exposes exactly the six canonical MCP names and may use the
+provider-safe aliases internally. Raw gateway action names are not MCP tool
+names.
+
 ## Error contract
 
 - `AUTH_REQUIRED`: missing bearer header, HTTP 401

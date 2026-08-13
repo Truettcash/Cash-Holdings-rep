@@ -12,6 +12,13 @@ generated OpenJarvis state.
 - `scheduler/` records scheduling intent without selecting a runtime operator.
 - `cash-mcp/` and `bootstrap/` are reserved for the next implementation phase.
 
+Git definitions remain under `repo/runtime/`. OpenJarvis 1.0.3 resolves
+generated state through `OPENJARVIS_HOME`, so the future bootstrap will use
+`~/.openjarvis` (outside the checkout); installation is under
+`~/.local/share/openjarvis/1.0.3`. Private Cash MCP state is under
+`~/.cash-mcp` with restrictive permissions. No generated state or credential
+belongs under `runtime/`.
+
 ## Verified OpenJarvis 1.0.3 trace
 
 The inspected source distribution is `openjarvis-1.0.3.tar.gz` with SHA-256
@@ -56,8 +63,12 @@ record by ID through `AgentScheduler` and `AgentExecutor`.
 OpenJarvis installation, managed-agent records, generated IDs, scheduler DB and
 history, caches, sessions, access tokens, and refresh tokens are runtime/private
 state. They must never be reconstructed from uncommitted Codespace files or
-committed to Git. The historical ID `7d48d6150605` is provenance only.
+committed to Git. The historical ID is recorded only in the operator spec as
+provenance.
 
-Bootstrap remains blocked until the exact source lock, Cash MCP source, prompt,
-fresh user session, and tool-contract tests are present. No schedule is enabled
-by this specification.
+Bootstrap remains blocked until Cash MCP is clean-room reconstructed from the
+gateway contract, its tests pass, the verified OpenJarvis artifact is installed,
+a fresh user session is bootstrapped, the operator is instantiated from Git,
+the six-tool/zero-native-tool proof succeeds, CloudEngine/gpt-4o-mini live read
+proof succeeds, the generated agent ID is bound through `AgentScheduler`, and
+one scheduled run is proven. No schedule is enabled by this specification.

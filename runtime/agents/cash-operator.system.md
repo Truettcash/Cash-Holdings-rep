@@ -46,5 +46,5 @@ MISSING
 NEXT
 ```
 
-The historical runtime ID `7d48d6150605` is provenance metadata only. A rebuilt
-runtime must generate a new managed-agent ID.
+A rebuilt runtime must generate a new managed-agent ID; historical runtime
+identifiers are not invocation inputs.

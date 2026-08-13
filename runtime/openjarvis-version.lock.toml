@@ -8,8 +8,10 @@ distribution_source = "PyPI"
 upstream_commit = "unavailable_from_distribution"
 automatic_upgrades = false
 
-# Generated installation and state are outside Git.
-installation_path = "runtime/.state/openjarvis-1.0.3"
-state_path = "runtime/.state/openjarvis"
-launcher_path = "runtime/.state/openjarvis-1.0.3/bin/jarvis"
+# Generated installation and state are outside the repository checkout. The
+# state path follows OpenJarvis' native OPENJARVIS_HOME convention.
+installation_path = "~/.local/share/openjarvis/1.0.3"
+openjarvis_home = "~/.openjarvis"
+launcher_path = "~/.local/bin/jarvis"
+cash_mcp_private_state_path = "~/.cash-mcp"
 restore_gate = "verify_version_and_sha256_before_install"
