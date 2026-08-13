@@ -72,3 +72,15 @@ a fresh user session is bootstrapped, the operator is instantiated from Git,
 the six-tool/zero-native-tool proof succeeds, CloudEngine/gpt-4o-mini live read
 proof succeeds, the generated agent ID is bound through `AgentScheduler`, and
 one scheduled run is proven. No schedule is enabled by this specification.
+
+## R2B implementation
+
+The clean-room Cash MCP source is under `cash-mcp/`. Its local test command is:
+
+```text
+python -m unittest discover -s runtime/cash-mcp/tests -p 'test_*.py'
+```
+
+Tests use fake auth, HTTP, and protocol streams only. No live credentials are
+stored. R2C remains required for exact OpenJarvis installation and fresh
+dedicated-user session bootstrap.
