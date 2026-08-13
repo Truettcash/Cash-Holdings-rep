@@ -45,6 +45,7 @@ create trigger jarvis_runtime_presence_touch_updated_at
   for each row execute function public.touch_updated_at();
 
 revoke all on public.jarvis_runtime_presence from anon;
+revoke all on public.jarvis_runtime_presence from authenticated;
 grant select, insert, update on public.jarvis_runtime_presence to authenticated;
 
 alter table public.jarvis_runtime_presence enable row level security;
