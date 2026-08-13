@@ -1,0 +1,8 @@
+schema: cash-runtime-scheduler-intent/v1
+target: Cash Operator
+interval_seconds: 14400
+cadence: every_4_hours
+active_schedule_count: 1
+execution_mechanism: unresolved_until_openjarvis_1_0_3_bootstrap
+generic_operator_selector: prohibited
+enablement: blocked_until_managed_agent_proof

@@ -1,0 +1,88 @@
+schema: cash-runtime-spec/v1
+status: reconstruction-specification
+
+# This file is declarative. It is not an OpenJarvis database export and must
+# not be used to recreate runtime state until the missing authoritative inputs
+# listed below have been recovered and reviewed.
+operator:
+  canonical_name: Cash Operator
+  historical_runtime_id: 7d48d6150605
+  historical_runtime_id_status: provenance_only
+  runtime_id: generated_on_bootstrap
+  identity_source: git
+  prompt_source: runtime/agents/cash-operator.system.md
+  prompt_copying: prohibited_from_memory
+
+runtime:
+  product: OpenJarvis
+  required_version: 1.0.3
+  upstream_commit: unavailable_from_distribution
+  source_path: runtime/openjarvis/installation-manifest.toml
+  state_path: generated_runtime_state
+  scheduler_state_path: generated_scheduler_database
+  bootstrap_status: blocked_until_source_and_hash_are_verified
+
+model:
+  provider: CloudEngine
+  model: gpt-4o-mini
+
+permissions:
+  tier: 0
+  mode: read_only
+  native_tools: []
+  native_tool_count: 0
+  writes: prohibited
+  service_role: prohibited
+  slack: prohibited
+  github: prohibited
+  web_search: prohibited
+
+cash_mcp:
+  source_path: future runtime/cash-mcp implementation
+  project_state_path: private runtime state
+  auth_provider: dedicated_cash_user_session
+  auth_refresh_token: never_commit
+  access_token_environment_variable: prohibited
+  prohibited_environment_variable: CASH_SUPABASE_ACCESS_TOKEN
+  tool_count: 6
+  tool_names:
+    - list_brands
+    - get_brand
+    - list_active_projects
+    - get_project
+    - get_pipeline
+    - get_recent_activity
+  tool_scope: read_only_cash_mcp_tools_only
+
+output_contract:
+  live_data_required: true
+  report_sections:
+    - OBSERVED
+    - INTERPRETATION
+    - MISSING
+    - NEXT
+  minimum_cash_mcp_calls: required_by_live_proof
+
+schedule:
+  desired_interval_seconds: 14400
+  desired_cadence: every_4_hours
+  active_schedule_target: one
+  generic_monitor_operative: prohibited
+  enablement: blocked_until_canonical_binding_is_proven
+
+secrets:
+  storage: private_runtime_only
+  git_storage: prohibited
+  supabase_mutation_during_bootstrap: prohibited
+  deployment_during_bootstrap: prohibited
+
+reconstruction_gates:
+  - recover_cash_mcp_source_and_commit_it
+  - recover_cash_operator_prompt_and_commit_it
+  - recover_openjarvis_1_0_3_source
+  - record_and_verify_openjarvis_upstream_commit
+  - generate_runtime_state_from_this_spec
+  - perform_fresh_user_session_bootstrap
+  - prove_six_cash_mcp_tools_and_zero_native_tools
+  - prove_cloudengine_gpt_4o_mini_and_read_only_cash_data
+  - bind_scheduler_only_after_live_proof

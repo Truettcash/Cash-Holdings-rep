@@ -1,0 +1,15 @@
+# Immutable source identity for the future runtime bootstrap.
+package = "openjarvis"
+product = "OpenJarvis"
+version = "1.0.3"
+source_artifact = "openjarvis-1.0.3.tar.gz"
+source_artifact_sha256 = "99a8beb3300289846ea7106132f3f20b144ac39659f6c6f59b053c839297d627"
+distribution_source = "PyPI"
+upstream_commit = "unavailable_from_distribution"
+automatic_upgrades = false
+
+# Generated installation and state are outside Git.
+installation_path = "runtime/.state/openjarvis-1.0.3"
+state_path = "runtime/.state/openjarvis"
+launcher_path = "runtime/.state/openjarvis-1.0.3/bin/jarvis"
+restore_gate = "verify_version_and_sha256_before_install"
