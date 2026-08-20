@@ -1,0 +1,8 @@
+schema: cash-runtime-scheduler-intent/v1
+target: Cash Operator
+interval_seconds: 14400
+cadence: every_4_hours
+active_schedule_count: 1
+execution_mechanism: OpenJarvis AgentScheduler -> generated persisted Cash Operator agent ID -> AgentExecutor.execute_tick(agent_id)
+generic_operator_selector: prohibited
+enablement: blocked_until_managed_agent_proof

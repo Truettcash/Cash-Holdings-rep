@@ -1,11 +1,14 @@
 #!/usr/bin/env node
-const fs = require('fs');
-const path = require('path');
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 const MIGRATIONS_DIR = path.join(__dirname, '..', 'supabase', 'migrations');
 
-function fail(msg) {
-  console.error('Migration validation failed:', msg);
+function fail(message) {
+  console.error('Migration validation failed:', message);
   process.exit(1);
 }
 
@@ -13,61 +16,51 @@ if (!fs.existsSync(MIGRATIONS_DIR)) {
   fail(`Migrations directory not found: ${MIGRATIONS_DIR}`);
 }
 
-const files = fs.readdirSync(MIGRATIONS_DIR).filter((f) => f.endsWith('.sql'));
-if (files.length === 0) fail('No .sql migration files found in supabase/migrations/');
-
-// Check duplicates
-const dupCheck = new Set();
-for (const f of files) {
-  if (dupCheck.has(f)) fail(`Duplicate migration filename: ${f}`);
-  dupCheck.add(f);
+const files = fs.readdirSync(MIGRATIONS_DIR).filter((file) => file.endsWith('.sql'));
+if (files.length === 0) {
+  fail('No .sql migration files found in supabase/migrations/');
 }
 
-// Reject duplicate migration sequence identities (YYYYMMDD_NNN)
-const seqCheck = new Set();
-for (const f of files) {
-  const m = f.match(/^([0-9]{8}_[0-9]{3})_/);
-  if (m) {
-    const seq = m[1];
-    if (seqCheck.has(seq))
-      fail(`Duplicate migration sequence detected: ${seq} (conflicting file: ${f})`);
-    seqCheck.add(seq);
-  } else {
-    // already will fail on naming, but be explicit
-    fail(`Cannot extract sequence prefix from filename: ${f}`);
+const allowedPatterns = [
+  /^[0-9]{14}_[A-Za-z0-9-]+\.sql$/,
+  /^[0-9]{8}_[0-9]{3}_[A-Za-z0-9._-]+\.sql$/,
+];
+
+const seenNames = new Set();
+for (const file of files) {
+  if (seenNames.has(file)) {
+    fail(`Duplicate migration filename: ${file}`);
+  }
+  seenNames.add(file);
+
+  if (!allowedPatterns.some((pattern) => pattern.test(file))) {
+    fail(
+      `Invalid migration filename: ${file}. Expected Supabase timestamp_uuid.sql or YYYYMMDD_NNN_description.sql.`,
+    );
   }
 }
 
-// Validate naming convention YYYYMMDD_NNN_description.sql
-const nameRegex = /^[0-9]{8}_[0-9]{3}_[A-Za-z0-9._-]+\.sql$/;
-for (const f of files) {
-  if (!nameRegex.test(f))
-    fail(`Invalid migration filename (must be YYYYMMDD_NNN_description.sql): ${f}`);
-}
-
-// Ensure files are sorted and report order
 const sorted = [...files].sort();
-for (let i = 0; i < files.length; i++) {
-  if (files[i] !== sorted[i]) {
+for (let index = 0; index < files.length; index += 1) {
+  if (files[index] !== sorted[index]) {
     console.warn('Migration files are not in sorted order; expected execution order is:');
     console.warn(sorted.join('\n'));
     break;
   }
 }
 
-// Check non-empty and readable
-for (const f of sorted) {
-  const p = path.join(MIGRATIONS_DIR, f);
+for (const file of sorted) {
+  const target = path.join(MIGRATIONS_DIR, file);
   try {
-    const st = fs.statSync(p);
-    if (st.size === 0) fail(`Empty migration file: ${f}`);
-    // quick readability check
-    fs.readFileSync(p, 'utf8');
-  } catch (e) {
-    fail(`Cannot read migration file ${f}: ${e.message}`);
+    const stat = fs.statSync(target);
+    if (stat.size === 0) {
+      fail(`Empty migration file: ${file}`);
+    }
+    fs.readFileSync(target, 'utf8');
+  } catch (error) {
+    fail(`Cannot read migration file ${file}: ${error instanceof Error ? error.message : String(error)}`);
   }
 }
 
 console.log('Migration files validated — execution order:');
-sorted.forEach((s, i) => console.log(`${i + 1}. ${s}`));
-process.exit(0);
+sorted.forEach((file, index) => console.log(`${index + 1}. ${file}`));

@@ -1,0 +1,547 @@
+@import "tailwindcss" source(none);
+@source "../src";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+/* ============================================================
+   CASH HOLDINGS — DARK LUXURY OPERATOR DESIGN SYSTEM
+   Obsidian + charcoal + off-white + electric teal accents
+   ============================================================ */
+
+@theme inline {
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 12px;
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --color-surface: var(--surface);
+  --color-surface-elevated: var(--surface-elevated);
+  --color-panel: var(--panel);
+  --color-hairline: var(--hairline);
+  --color-teal: var(--teal);
+  --color-teal-soft: var(--teal-soft);
+  --color-teal-foreground: var(--teal-foreground);
+  --color-warn: var(--warn);
+  --color-danger: var(--danger);
+  --color-success: var(--success);
+
+  --color-chart-1: var(--teal);
+  --color-chart-2: oklch(0.65 0.05 200);
+  --color-chart-3: oklch(0.55 0.04 230);
+  --color-chart-4: oklch(0.45 0.03 250);
+  --color-chart-5: oklch(0.75 0.08 180);
+
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Instrument Serif", ui-serif, Georgia, serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+}
+
+:root.dark {
+  /* Obsidian base */
+  --background: oklch(0.13 0.005 240);
+  --foreground: oklch(0.95 0.005 90);
+
+  --surface: oklch(0.16 0.006 240);          /* page sections */
+  --surface-elevated: oklch(0.185 0.007 240);/* cards on surface */
+  --panel: oklch(0.20 0.008 240);            /* sidebar / chrome */
+  --hairline: oklch(0.28 0.008 240 / 0.7);   /* thin border */
+
+  --card: oklch(0.175 0.007 240);
+  --card-foreground: oklch(0.95 0.005 90);
+  --popover: oklch(0.19 0.008 240);
+  --popover-foreground: oklch(0.95 0.005 90);
+
+  --primary: oklch(0.95 0.005 90);
+  --primary-foreground: oklch(0.13 0.005 240);
+
+  --secondary: oklch(0.22 0.008 240);
+  --secondary-foreground: oklch(0.92 0.005 90);
+
+  --muted: oklch(0.20 0.008 240);
+  --muted-foreground: oklch(0.62 0.012 240);
+
+  --accent: oklch(0.24 0.01 240);
+  --accent-foreground: oklch(0.95 0.005 90);
+
+  --destructive: oklch(0.55 0.18 25);
+  --destructive-foreground: oklch(0.98 0.005 90);
+
+  --border: oklch(0.26 0.008 240 / 0.6);
+  --input: oklch(0.24 0.008 240);
+  --ring: oklch(0.78 0.13 195);
+
+  /* Signature electric teal */
+  --teal: oklch(0.82 0.14 195);
+  --teal-soft: oklch(0.82 0.14 195 / 0.12);
+  --teal-foreground: oklch(0.13 0.005 240);
+
+  --warn: oklch(0.78 0.14 75);
+  --danger: oklch(0.65 0.20 25);
+  --success: oklch(0.75 0.13 160);
+
+  --radius: 6px;
+}
+
+/* ------------------------------------------------------------
+   LIGHT APPEARANCE — paper canvas, soft graphite panels, ink text.
+   Same token names, deepened teal so accents stay legible.
+   ------------------------------------------------------------ */
+:root,
+.light {
+  --background: oklch(0.985 0.002 250);
+  --foreground: oklch(0.22 0.01 250);
+
+  --surface: oklch(1 0 0);
+  --surface-elevated: oklch(1 0 0);
+  --panel: oklch(0.975 0.003 250);
+  --hairline: oklch(0.55 0.01 250 / 0.18);
+
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.22 0.01 250);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.22 0.01 250);
+
+  --primary: oklch(0.24 0.012 250);
+  --primary-foreground: oklch(0.99 0.002 250);
+
+  --secondary: oklch(0.955 0.004 250);
+  --secondary-foreground: oklch(0.28 0.012 250);
+
+  --muted: oklch(0.955 0.004 250);
+  --muted-foreground: oklch(0.50 0.012 250);
+
+  --accent: oklch(0.94 0.006 250);
+  --accent-foreground: oklch(0.24 0.012 250);
+
+  --destructive: oklch(0.55 0.19 25);
+  --destructive-foreground: oklch(0.99 0.002 250);
+
+  --border: oklch(0.55 0.01 250 / 0.20);
+  --input: oklch(1 0 0);
+  --ring: oklch(0.55 0.12 195);
+
+  --teal: oklch(0.55 0.11 195);
+  --teal-soft: oklch(0.55 0.11 195 / 0.12);
+  --teal-foreground: oklch(0.99 0.002 250);
+
+  --warn: oklch(0.62 0.14 70);
+  --danger: oklch(0.55 0.19 25);
+  --success: oklch(0.55 0.13 155);
+
+  --radius: 6px;
+
+  /* Surface hierarchy — light */
+  --canvas: oklch(0.975 0.003 250);
+  --surface-1: oklch(1 0 0 / 0.92);
+  --surface-2: oklch(0.985 0.003 250 / 0.96);
+  --surface-3: oklch(0.955 0.005 250 / 0.96);
+  --surface-selected: oklch(0.94 0.02 210 / 0.9);
+  --surface-critical: oklch(0.72 0.14 25 / 0.12);
+  --edge: oklch(0.30 0.01 250 / 0.10);
+  --edge-strong: oklch(0.30 0.01 250 / 0.18);
+  --lift-1: 0 1px 0 oklch(1 0 0 / 0.6) inset, 0 6px 18px -14px oklch(0.3 0.02 250 / 0.35);
+  --lift-2: 0 1px 0 oklch(1 0 0 / 0.7) inset, 0 18px 40px -26px oklch(0.3 0.02 250 / 0.4);
+
+  /* Canvas glow + chrome */
+  --glow-1: oklch(0.86 0.04 200 / 0.35);
+  --glow-2: oklch(0.90 0.02 250 / 0.45);
+  --chrome-bg: oklch(1 0 0 / 0.72);
+  --scrollbar-thumb: oklch(0.55 0.01 250 / 0.28);
+  --scrollbar-thumb-hover: oklch(0.45 0.01 250 / 0.42);
+
+  /* Chart tokens */
+  --chart-grid: oklch(0.30 0.01 250 / 0.07);
+  --chart-axis: oklch(0.30 0.01 250 / 0.14);
+  --chart-tick: oklch(0.50 0.012 250);
+  --chart-ghost: oklch(0.62 0.01 250);
+  --chart-cursor: oklch(0.55 0.11 195 / 0.28);
+  --chart-bar: oklch(0.55 0.11 195 / 0.75);
+  --chart-bar-cursor: oklch(0.30 0.01 250 / 0.05);
+  --chart-tooltip-shadow: 0 8px 24px oklch(0.3 0.02 250 / 0.18);
+}
+
+/* ------------------------------------------------------------
+   SURFACE HIERARCHY — Canvas → Primary → Raised → Interactive
+   → Selected → Critical.  Dark Apple OS x editorial precision.
+   ------------------------------------------------------------ */
+:root.dark {
+  --canvas: oklch(0.115 0.004 240);
+  --surface-1: oklch(0.155 0.006 240 / 0.92);   /* primary panels */
+  --surface-2: oklch(0.185 0.007 240 / 0.94);   /* raised */
+  --surface-3: oklch(0.215 0.008 240 / 0.96);   /* interactive hover */
+  --surface-selected: oklch(0.245 0.012 210 / 0.96);
+  --surface-critical: oklch(0.30 0.10 25 / 0.16);
+  --edge: oklch(1 0 0 / 0.07);                  /* thin low-contrast border */
+  --edge-strong: oklch(1 0 0 / 0.13);
+  --lift-1: 0 1px 0 oklch(1 0 0 / 0.04) inset, 0 8px 24px -18px oklch(0 0 0 / 0.8);
+  --lift-2: 0 1px 0 oklch(1 0 0 / 0.05) inset, 0 20px 48px -28px oklch(0 0 0 / 0.85);
+  --ease-os: cubic-bezier(0.32, 0.72, 0, 1);
+
+  --glow-1: oklch(0.22 0.02 200 / 0.25);
+  --glow-2: oklch(0.20 0.01 240 / 0.30);
+  --chrome-bg: oklch(0.13 0.005 240 / 0.72);
+  --scrollbar-thumb: oklch(0.28 0.008 240);
+  --scrollbar-thumb-hover: oklch(0.34 0.01 240);
+
+  --chart-grid: oklch(1 0 0 / 0.035);
+  --chart-axis: oklch(1 0 0 / 0.06);
+  --chart-tick: oklch(0.62 0.012 240);
+  --chart-ghost: oklch(0.62 0.012 240);
+  --chart-cursor: oklch(0.82 0.14 195 / 0.3);
+  --chart-bar: oklch(0.82 0.14 195 / 0.72);
+  --chart-bar-cursor: oklch(1 0 0 / 0.03);
+  --chart-tooltip-shadow: 0 8px 24px oklch(0 0 0 / 0.28);
+}
+
+:root {
+  --ease-os: cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+@theme inline {
+  --color-canvas: var(--canvas);
+  --color-surface-1: var(--surface-1);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
+  --color-edge: var(--edge);
+  --color-edge-strong: var(--edge-strong);
+}
+
+/* ------------------------------------------------------------
+   SEMANTIC TOKEN LAYER
+   Named intents mapped onto the resolved appearance palette.
+   Components consume these; never raw colour literals.
+   ------------------------------------------------------------ */
+:root {
+  --surface-primary: var(--surface-1);
+  --surface-secondary: var(--surface-2);
+  --surface-raised: var(--surface-2);
+  --surface-floating: var(--popover);
+  --border-subtle: var(--edge);
+  --border-default: var(--border);
+  --border-strong: var(--edge-strong);
+  --text-primary: var(--foreground);
+  --text-secondary: color-mix(in oklab, var(--foreground) 78%, var(--background));
+  --text-muted: var(--muted-foreground);
+  --text-inverse: var(--primary-foreground);
+  --accent-color: var(--teal);
+  --accent-muted: var(--teal-soft);
+  --chart-series-primary: var(--teal);
+  --chart-series-secondary: color-mix(in oklab, var(--teal) 55%, var(--muted-foreground));
+  --tooltip-background: var(--popover);
+  --tooltip-border: var(--edge-strong);
+  --input-background: var(--input);
+  --input-border: var(--edge-strong);
+  --focus-ring: var(--teal);
+  --shadow-soft: var(--lift-1);
+  --overlay: color-mix(in oklab, var(--canvas) 72%, transparent);
+}
+
+@theme inline {
+  --color-surface-primary: var(--surface-primary);
+  --color-surface-secondary: var(--surface-secondary);
+  --color-surface-floating: var(--surface-floating);
+  --color-border-subtle: var(--border-subtle);
+  --color-border-strong: var(--border-strong);
+  --color-text-primary: var(--text-primary);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-muted: var(--text-muted);
+  --color-chart-grid: var(--chart-grid);
+  --color-chart-axis: var(--chart-axis);
+  --color-chart-series-primary: var(--chart-series-primary);
+  --color-chart-series-secondary: var(--chart-series-secondary);
+}
+
+/* Primary executive panel — opaque enough to stay calm at density */
+@utility surface {
+  background: var(--surface-1);
+  border: 1px solid var(--edge);
+  box-shadow: var(--lift-1);
+}
+@utility surface-raised {
+  background: var(--surface-2);
+  border: 1px solid var(--edge);
+  box-shadow: var(--lift-2);
+}
+/* Rows / cells that respond to the pointer */
+@utility surface-interactive {
+  transition: background-color 140ms var(--ease-os), border-color 140ms var(--ease-os),
+    color 140ms var(--ease-os);
+  &:hover {
+    background: var(--surface-3);
+  }
+}
+@utility surface-selected {
+  background: var(--surface-selected);
+  box-shadow: inset 2px 0 0 var(--teal);
+}
+@utility surface-critical {
+  background: var(--surface-critical);
+  box-shadow: inset 2px 0 0 var(--danger);
+}
+/* Only navigation, drawers and floating controls get blur */
+@utility chrome-blur {
+  background: var(--chrome-bg);
+  backdrop-filter: blur(20px) saturate(140%);
+}
+@utility edge-b { border-bottom: 1px solid var(--edge); }
+@utility edge-t { border-top: 1px solid var(--edge); }
+@utility edge-r { border-right: 1px solid var(--edge); }
+@utility edge-l { border-left: 1px solid var(--edge); }
+
+/* Numeric / technical values */
+@utility tabular {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+
+/* Motion system: 120–180ms micro, 180–260ms panels */
+@utility motion-micro { transition: all 150ms var(--ease-os); }
+@utility motion-panel { transition: all 220ms var(--ease-os); }
+@utility ch-fade-in { animation: ch-fade-in 180ms var(--ease-os) both; }
+@keyframes ch-fade-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ------------------------------------------------------------
+   OPERATOR OS — calm typography scale + elegant motion
+   ------------------------------------------------------------ */
+
+/* Type tiers. Inter throughout; mono reserved for labels + numerics. */
+@utility text-display {
+  font-size: 27px;
+  line-height: 1.1;
+  letter-spacing: -0.024em;
+  font-weight: 600;
+}
+@utility text-title {
+  font-size: 18px;
+  line-height: 1.25;
+  letter-spacing: -0.015em;
+  font-weight: 600;
+}
+@utility text-heading {
+  font-size: 14.5px;
+  line-height: 1.3;
+  letter-spacing: -0.01em;
+  font-weight: 550;
+}
+@utility text-body {
+  font-size: 13.5px;
+  line-height: 1.45;
+  letter-spacing: -0.003em;
+}
+@utility text-supporting {
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--muted-foreground);
+}
+
+/* Borderless separation: elevation instead of hairlines. */
+@utility surface-quiet {
+  background: var(--surface-1);
+  border: 1px solid transparent;
+  box-shadow: var(--lift-1);
+}
+
+/* Card that lifts under the pointer — reveals secondary insight. */
+@utility lift-hover {
+  transition: transform 200ms var(--ease-os), box-shadow 200ms var(--ease-os),
+    background-color 200ms var(--ease-os);
+  &:hover {
+    transform: translateY(-1px);
+    box-shadow: var(--lift-2);
+  }
+}
+
+@utility ch-scale-in { animation: ch-scale-in 220ms var(--ease-os) both; }
+@keyframes ch-scale-in {
+  from { opacity: 0; transform: scale(0.97); }
+  to   { opacity: 1; transform: scale(1); }
+}
+@utility ch-slide-up { animation: ch-slide-up 260ms var(--ease-os) both; }
+@keyframes ch-slide-up {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+/* Page-level entrance for route bodies. */
+@utility ch-page-in { animation: ch-page-in 240ms var(--ease-os) both; }
+@keyframes ch-page-in {
+  from { opacity: 0; transform: translateY(6px) scale(0.995); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+/* Sequenced children — calm cascade, never flashy. */
+@utility ch-stagger {
+  & > * {
+    animation: ch-slide-up 260ms var(--ease-os) both;
+  }
+  & > *:nth-child(1) { animation-delay: 0ms; }
+  & > *:nth-child(2) { animation-delay: 40ms; }
+  & > *:nth-child(3) { animation-delay: 80ms; }
+  & > *:nth-child(4) { animation-delay: 120ms; }
+  & > *:nth-child(5) { animation-delay: 160ms; }
+  & > *:nth-child(6) { animation-delay: 200ms; }
+}
+
+@layer base {
+  * {
+    border-color: var(--color-border);
+  }
+  html, body, #root {
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+  body {
+    background-image:
+      radial-gradient(1200px 600px at 80% -10%, var(--glow-1), transparent 60%),
+      radial-gradient(900px 500px at -10% 110%, var(--glow-2), transparent 60%);
+    background-attachment: fixed;
+  }
+  ::selection { background: var(--teal-soft); color: var(--foreground); }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb {
+    background: var(--scrollbar-thumb);
+    border-radius: 8px;
+    border: 2px solid var(--background);
+  }
+  ::-webkit-scrollbar-thumb:hover { background: var(--scrollbar-thumb-hover); }
+}
+
+@utility mono-label {
+  /* Executive section label — Inter, restrained tracking, no monospace. */
+  font-family: var(--font-sans);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  font-weight: 560;
+}
+
+@utility glass-panel {
+  background: var(--surface-floating);
+  border: 1px solid var(--border-subtle);
+  box-shadow: var(--lift-2);
+  backdrop-filter: blur(8px);
+}
+
+@utility hairline {
+  border: 1px solid var(--hairline);
+}
+
+@utility teal-glow {
+  box-shadow:
+    0 0 0 1px var(--teal-soft),
+    0 0 24px -4px var(--teal-soft);
+}
+
+@utility display-serif {
+  font-family: var(--font-display);
+  font-weight: 400;
+  letter-spacing: -0.01em;
+}
+
+/* ============================================================
+   PHASE 4 — Responsive motion + interaction polish
+   ============================================================ */
+
+@utility collapsible-content {
+  overflow: hidden;
+  transition: grid-template-rows 220ms cubic-bezier(0.22, 1, 0.36, 1),
+              opacity 180ms ease-out;
+}
+
+/* Smooth height + fade for expandable rows / sections */
+@utility ch-expand {
+  display: grid;
+  grid-template-rows: 1fr;
+  transition: grid-template-rows 220ms cubic-bezier(0.22, 1, 0.36, 1),
+              opacity 180ms ease-out;
+  opacity: 1;
+}
+@utility ch-collapse {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 200ms cubic-bezier(0.4, 0, 0.2, 1),
+              opacity 140ms ease-in;
+  opacity: 0;
+}
+
+/* Drawer / sheet motion */
+@utility ch-sheet-in  { animation: ch-sheet-in 280ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+@utility ch-sheet-out { animation: ch-sheet-out 200ms ease-in both; }
+@utility ch-drawer-in  { animation: ch-drawer-in 260ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+@utility ch-drawer-out { animation: ch-drawer-out 200ms ease-in both; }
+
+@keyframes ch-sheet-in {
+  from { opacity: 0; transform: translateY(8px) scale(0.985); }
+  to   { opacity: 1; transform: translateY(0)   scale(1); }
+}
+@keyframes ch-sheet-out {
+  from { opacity: 1; transform: translateY(0); }
+  to   { opacity: 0; transform: translateY(6px); }
+}
+@keyframes ch-drawer-in {
+  from { transform: translateX(-100%); }
+  to   { transform: translateX(0); }
+}
+@keyframes ch-drawer-out {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-100%); }
+}
+
+/* Focus ring for keyboard-only operators */
+@layer base {
+  :focus-visible {
+    outline: 2px solid var(--teal);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+  /* Honour user motion preferences across the whole console */
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.001ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.001ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+  /* Larger touch targets on coarse pointers */
+  @media (pointer: coarse) {
+    button, [role="button"], a {
+      min-height: 36px;
+    }
+  }
+}
+
+/* Safe-area padding for mobile floating action button */
+@utility safe-bottom {
+  padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
+}

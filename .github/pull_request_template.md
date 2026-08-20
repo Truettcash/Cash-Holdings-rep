@@ -7,9 +7,7 @@ Describe the change and why it is needed.
 - [ ] I have added/updated tests
 - [ ] I have updated documentation if needed
 - [ ] This change follows the project's style guide
-- [ ] Typecheck passes
-- [ ] Tests pass
-- [ ] Build passes
+- [ ] Build passes for the intended package manager/tooling path
 - [ ] Migration files validated
 - [ ] No secrets committed
 - [ ] RLS/auth changes reviewed

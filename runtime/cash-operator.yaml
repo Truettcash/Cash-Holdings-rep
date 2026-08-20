@@ -1,0 +1,90 @@
+schema: cash-runtime-spec/v1
+status: reconstruction-specification
+
+# This file is declarative. It is not an OpenJarvis database export and must
+# not be used to recreate runtime state until the missing authoritative inputs
+# listed below have been recovered and reviewed.
+operator:
+  canonical_name: Cash Operator
+  historical_runtime_id: 7d48d6150605
+  historical_runtime_id_status: provenance_only
+  runtime_id: generated_on_bootstrap
+  identity_source: git
+  prompt_source: runtime/agents/cash-operator.system.md
+  prompt_copying: prohibited_from_memory
+
+runtime:
+  product: OpenJarvis
+  required_version: 1.0.3
+  upstream_commit: unavailable_from_distribution
+  source_path: runtime/openjarvis/installation-manifest.toml
+  state_path: "~/.openjarvis"
+  scheduler_state_path: "~/.openjarvis/scheduler.db"
+  installation_path: "~/.local/share/openjarvis/1.0.3"
+  bootstrap_status: blocked_until_cash_mcp_and_live_proof
+
+model:
+  provider: CloudEngine
+  model: gpt-4o-mini
+
+permissions:
+  tier: 0
+  mode: read_only
+  native_tools: []
+  native_tool_count: 0
+  writes: prohibited
+  service_role: prohibited
+  slack: prohibited
+  github: prohibited
+  web_search: prohibited
+
+cash_mcp:
+  source_path: future repo/runtime/cash-mcp implementation
+  project_state_path: "~/.cash-mcp"
+  private_state_permissions: "0700 directory, 0600 token state"
+  auth_provider: dedicated_cash_user_session
+  auth_refresh_token: never_commit
+  access_token_environment_variable: prohibited
+  prohibited_environment_variable: CASH_SUPABASE_ACCESS_TOKEN
+  tool_count: 6
+  tool_names:
+    - list_brands
+    - get_brand
+    - list_active_projects
+    - get_project
+    - get_pipeline
+    - get_recent_activity
+  tool_scope: read_only_cash_mcp_tools_only
+
+output_contract:
+  live_data_required: true
+  report_sections:
+    - OBSERVED
+    - INTERPRETATION
+    - MISSING
+    - NEXT
+  minimum_cash_mcp_calls: required_by_live_proof
+
+schedule:
+  desired_interval_seconds: 14400
+  desired_cadence: every_4_hours
+  active_schedule_target: one
+  generic_monitor_operative: prohibited
+  enablement: blocked_until_canonical_binding_is_proven
+
+secrets:
+  storage: private_runtime_only
+  git_storage: prohibited
+  supabase_mutation_during_bootstrap: prohibited
+  deployment_during_bootstrap: prohibited
+
+reconstruction_gates:
+  - reconstruct_cash_mcp_from_gateway_contract
+  - prove_cash_mcp_contract_tests
+  - install_verified_openjarvis_1_0_3
+  - perform_fresh_user_session_bootstrap
+  - instantiate_cash_operator_from_git_spec
+  - prove_six_cash_mcp_tools_zero_native_tools
+  - prove_cloudengine_gpt_4o_mini_live_read
+  - bind_managed_agent_scheduler_by_generated_agent_id
+  - prove_one_scheduled_run

@@ -1,0 +1,11 @@
+package = "openjarvis"
+version = "1.0.3"
+artifact = "openjarvis-1.0.3.tar.gz"
+sha256 = "99a8beb3300289846ea7106132f3f20b144ac39659f6c6f59b053c839297d627"
+source = "PyPI"
+upstream_commit = "unavailable_from_distribution"
+automatic_upgrade = false
+install_prefix = "~/.local/share/openjarvis/1.0.3"
+openjarvis_home = "~/.openjarvis"
+cash_mcp_private_state = "~/.cash-mcp"
+launcher = "~/.local/bin/jarvis"

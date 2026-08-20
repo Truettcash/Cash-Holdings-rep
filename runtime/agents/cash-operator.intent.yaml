@@ -1,0 +1,22 @@
+schema: cash-runtime-router/v1
+intent_classes:
+  - OPERATING
+  - EVIDENCE
+  - INTELLIGENCE
+  - DIAGNOSTIC
+router:
+  owner: Cash Operator
+  classification: deterministic_keyword_routing
+  enforcement:
+    - classify user intent before tool selection
+    - operating routes to Cash MCP
+    - evidence routes to Knowledge MCP and context retrieval
+    - intelligence routes to constructs/signals retrieval
+    - diagnostic requires evidence retrieval before Pattern Engine execution
+  diagnostic_guard:
+    required: true
+    primitive_tools:
+      - intelligence_match_patterns
+      - intelligence_get_reasoning_trace
+    finalization_condition: "pattern_diagnostic_executed == true"
+  invariant: "DIAGNOSTIC turns cannot finalize without a successful diagnostic primitive call."
