@@ -30,12 +30,14 @@ BEGIN
   SELECT pg_get_functiondef('public.athrty_auto_release_outbound_v1(integer)'::regprocedure)
   INTO v_def;
 
-  IF v_def NOT LIKE '%message_quality_score >= 90%'
+  IF v_def NOT LIKE '%q.sequence_step = 1%'
+     OR v_def NOT LIKE '%interval ''24 hours''%'
+     OR v_def NOT LIKE '%message_quality_score >= 90%'
      OR v_def NOT LIKE '%specificity_score >= 90%'
      OR v_def NOT LIKE '%contact_quality_score >= 85%'
      OR v_def NOT LIKE '%evidence_quality_score >= 85%'
-     OR v_def NOT LIKE '%qa.total_score, 0) >= 90%'
-     OR v_def NOT LIKE '%qa.hard_block_count, 0) = 0%'
+     OR v_def NOT LIKE '%qa.total_score%>= 90%'
+     OR v_def NOT LIKE '%qa.hard_block_count%= 0%'
      OR v_def NOT LIKE '%ss_plus_red_team_passed%'
      OR v_def NOT LIKE '%can_spam_footer_v4_ascii%'
   THEN
@@ -76,7 +78,8 @@ BEGIN
     WHERE approval_mode='policy_auto'
       AND state IN ('approved','scheduled','sending','sent')
       AND (
-        policy_passed IS NOT TRUE
+        sequence_step <> 1
+        OR policy_passed IS NOT TRUE
         OR auto_approved_at IS NULL
         OR auto_approval_policy_version <> 'athrty_policy_auto_v1'
         OR human_approved_at IS NULL
