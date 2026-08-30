@@ -76,6 +76,8 @@ BEGIN
       LIMIT 1
     ) qa ON true
     WHERE q.state IN ('draft','review')
+      AND q.sequence_step = 1
+      AND (q.send_after IS NULL OR q.send_after <= v_now + interval '24 hours')
       AND q.policy_passed IS TRUE
       AND q.message_quality_score >= 90
       AND q.specificity_score >= 90
@@ -116,8 +118,8 @@ BEGIN
           )
       )
     ORDER BY q.created_at ASC
-    FOR UPDATE OF q SKIP LOCKED
     LIMIT greatest(1, least(coalesce(p_limit, 10), 25))
+    FOR UPDATE OF q SKIP LOCKED
   LOOP
     UPDATE public.prospect_outreach_queue
     SET state = 'approved',
@@ -133,6 +135,8 @@ BEGIN
           'auto_approved_at', v_now,
           'standing_operator_authorization', true,
           'auto_release_contract', jsonb_build_object(
+            'first_touch_only', true,
+            'approval_horizon_hours', 24,
             'message_quality_min', 90,
             'specificity_min', 90,
             'contact_quality_min', 85,
@@ -176,6 +180,7 @@ BEGIN
         100,
         jsonb_build_array(
           'Standing operator authorization',
+          'First touch only',
           'Premium policy passed',
           'SS+ red-team passed',
           'Commercial compliance passed',
