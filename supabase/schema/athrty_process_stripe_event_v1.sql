@@ -1,5 +1,5 @@
 -- Production Stripe event ledger / reconciliation RPC snapshot.
--- Recovery-only; no production SQL was applied by this pass.
+-- Hardened source contract. No production SQL was applied by this commit.
 
 CREATE OR REPLACE FUNCTION public.process_stripe_event(event jsonb)
 RETURNS TABLE(received boolean, duplicate boolean, processing_status text)
@@ -104,7 +104,7 @@ BEGIN
         COALESCE((event #>> '{data,object,amount_total}')::bigint,0),v_currency,
         CASE WHEN v_type='checkout.session.async_payment_failed' THEN 'failed' WHEN v_type IN ('checkout.session.completed','checkout.session.async_payment_succeeded') THEN 'succeeded' ELSE 'pending' END,
         NULL,event
-      ON CONFLICT ON CONSTRAINT payments_stripe_checkout_session_uidx
+      ON CONFLICT (stripe_checkout_session_id) WHERE stripe_checkout_session_id IS NOT NULL
       DO UPDATE SET order_id=EXCLUDED.order_id,organization_id=EXCLUDED.organization_id,contact_id=EXCLUDED.contact_id,provider_customer_id=EXCLUDED.provider_customer_id,stripe_payment_intent_id=EXCLUDED.stripe_payment_intent_id,amount=EXCLUDED.amount,currency=EXCLUDED.currency,status=EXCLUDED.status,updated_at=now(),metadata=EXCLUDED.metadata;
 
     ELSIF v_type IN ('payment_intent.succeeded','payment_intent.payment_failed') THEN
@@ -126,7 +126,7 @@ BEGIN
         v_payment_method_type,0,v_failure_code,v_failure_message,
         CASE WHEN v_type='payment_intent.succeeded' THEN now() ELSE NULL END,
         CASE WHEN v_type='payment_intent.payment_failed' THEN now() ELSE NULL END,event
-      ON CONFLICT ON CONSTRAINT payments_stripe_payment_intent_uidx
+      ON CONFLICT (stripe_payment_intent_id) WHERE stripe_payment_intent_id IS NOT NULL
       DO UPDATE SET status=EXCLUDED.status,payment_method_type=EXCLUDED.payment_method_type,failure_code=EXCLUDED.failure_code,failure_message=EXCLUDED.failure_message,succeeded_at=EXCLUDED.succeeded_at,failed_at=EXCLUDED.failed_at,amount=EXCLUDED.amount,currency=EXCLUDED.currency,order_id=EXCLUDED.order_id,updated_at=now(),metadata=EXCLUDED.metadata;
       IF v_type='payment_intent.succeeded' THEN UPDATE public.commerce_orders SET status='paid',paid_at=COALESCE(paid_at,now()) WHERE id=v_order_id; END IF;
 
