@@ -1,5 +1,6 @@
 -- ATHRTY Stripe conflict-target regression contract.
 -- Intended for a non-production validation database after applying the source function.
+-- Learning contract: conflict syntax must match the actual PostgreSQL catalog object type.
 
 DO $$
 DECLARE
