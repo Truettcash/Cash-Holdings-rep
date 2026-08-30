@@ -21,6 +21,7 @@ import {
   PanelLeft,
   ChevronDown,
   X,
+  Sparkles,
 } from "lucide-react";
 import { cashHoldingsSupabase as supabase } from "@/integrations/cash-holdings/client";
 import { cn } from "@/lib/utils";
@@ -40,7 +41,7 @@ type NavItem = {
 };
 
 /**
- * One operating hierarchy: work → knowledge → intelligence, then systems.
+ * One operating hierarchy: command → work → knowledge → intelligence, then systems.
  * Sub-surfaces (ATHRTY tabs, Intelligence stages) live inside their workspace,
  * so the rail never duplicates an entry point. Presentation only.
  */
@@ -48,6 +49,7 @@ const NAV_GROUPS: { label?: string; items: NavItem[] }[] = [
   {
     items: [
       { to: "/", label: "Overview", icon: Sunrise, exact: true },
+      { to: "/mission-control", label: "Jarvis", icon: Sparkles },
       { to: "/projects", label: "Work", icon: ListChecks },
       { to: "/crm", label: "Relationships", icon: Users },
       { to: "/athrty", label: "Outbound", icon: Building2 },
