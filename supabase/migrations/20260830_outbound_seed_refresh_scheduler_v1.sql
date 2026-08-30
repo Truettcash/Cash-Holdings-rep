@@ -4,22 +4,19 @@
 
 DO $do$
 DECLARE
-  v_seed_command text;
+  v_seed_definition text;
   v_seed_url text;
 BEGIN
-  SELECT command
-    INTO v_seed_command
-  FROM cron.job
-  WHERE jobname = 'athrty-outbound-seed-runner'
-    AND active = true
-  LIMIT 1;
+  v_seed_definition := pg_get_functiondef(
+    'private.dispatch_athrty_outbound_seed_runner(integer)'::regprocedure
+  );
 
-  IF v_seed_command IS NULL THEN
-    RAISE EXCEPTION 'ATHRTY_ACTIVE_SEED_JOB_REQUIRED';
+  IF v_seed_definition IS NULL THEN
+    RAISE EXCEPTION 'ATHRTY_SEED_DISPATCHER_REQUIRED';
   END IF;
 
   v_seed_url := substring(
-    v_seed_command
+    v_seed_definition
     FROM 'https://[^'']+/functions/v1/athrty-outbound-seed-runner'
   );
 
