@@ -1,0 +1,131 @@
+name: Hermes QA Firewall
+
+on:
+  pull_request:
+    branches:
+      - main
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - edited
+      - ready_for_review
+
+permissions:
+  contents: read
+  pull-requests: read
+
+concurrency:
+  group: hermes-qa-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  policy-gate:
+    name: Policy Gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      PR_BODY: ${{ github.event.pull_request.body }}
+      BASE_SHA: ${{ github.event.pull_request.base.sha }}
+      HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Capture changed files
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --name-only "$BASE_SHA" "$HEAD_SHA" | tee /tmp/changed-files.txt
+
+      - name: Enforce PR contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          body="${PR_BODY:-}"
+          failed=0
+
+          for heading in \
+            "## Objective" \
+            "## Scope" \
+            "## Validation" \
+            "## Risk" \
+            "## Rollback" \
+            "## Learning capture"
+          do
+            if ! grep -Fqi "$heading" <<< "$body"; then
+              echo "::error::Missing required PR section: $heading"
+              failed=1
+            fi
+          done
+
+          exit "$failed"
+
+      - name: Block committed environment secrets
+        shell: bash
+        run: |
+          set -euo pipefail
+          if grep -E '(^|/)\.env($|\.)' /tmp/changed-files.txt | grep -vE '(^|/)\.env\.example$' >/tmp/blocked-env-files.txt; then
+            cat /tmp/blocked-env-files.txt
+            echo "::error::Environment files must not be committed. Use a documented example file without secrets."
+            exit 1
+          fi
+
+      - name: Scan added lines for obvious credentials
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --unified=0 "$BASE_SHA" "$HEAD_SHA" > /tmp/pr.diff
+
+          if grep -E '^\+[^+].*(-----BEGIN ([A-Z ]+ )?PRIVATE KEY-----|ghp_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{30,}|sk_live_[A-Za-z0-9]{16,}|SUPABASE_SERVICE_ROLE_KEY[[:space:]]*=[[:space:]]*eyJ|OPENAI_API_KEY[[:space:]]*=[[:space:]]*sk-)' /tmp/pr.diff; then
+            echo "::error::Possible credential or private key detected in added lines."
+            exit 1
+          fi
+
+      - name: Enforce high-risk approval declaration
+        shell: bash
+        run: |
+          set -euo pipefail
+          sensitive='(^|/)(database|edge-functions|supabase)(/|$)|(^|/)DEPLOYMENT_MANIFEST\.md$|(^|/)\.github/workflows/|\.sql$|(^|/)\.env($|\.)'
+
+          if grep -Eiq "$sensitive" /tmp/changed-files.txt; then
+            echo "Sensitive path detected."
+
+            if ! grep -Eiq 'Risk level:[[:space:]]*high' <<< "${PR_BODY:-}"; then
+              echo "::error::Sensitive changes require: Risk level: high"
+              exit 1
+            fi
+
+            if ! grep -Eiq 'Human approval required:[[:space:]]*yes' <<< "${PR_BODY:-}"; then
+              echo "::error::Sensitive changes require: Human approval required: yes"
+              exit 1
+            fi
+          fi
+
+      - name: Verify recovery bundle integrity
+        shell: bash
+        run: |
+          set -euo pipefail
+          found=0
+
+          while IFS= read -r -d '' sums; do
+            found=1
+            dir="$(dirname "$sums")"
+            echo "Verifying $sums"
+            (
+              cd "$dir"
+              sha256sum -c SHA256SUMS.txt
+            )
+          done < <(find . -name SHA256SUMS.txt -print0)
+
+          if [ "$found" -eq 0 ]; then
+            echo "No checksum manifests found; skipping integrity verification."
+          fi
+
+      - name: Report gate result
+        shell: bash
+        run: |
+          echo "Hermes QA firewall passed. This validates the proposal; it does not authorize production deployment."

@@ -1,0 +1,10 @@
+# Default ownership
+* @Truettcash
+
+# Sensitive operating surfaces
+.github/workflows/ @Truettcash
+**/database/ @Truettcash
+**/edge-functions/ @Truettcash
+**/supabase/ @Truettcash
+**/*.sql @Truettcash
+**/DEPLOYMENT_MANIFEST.md @Truettcash
