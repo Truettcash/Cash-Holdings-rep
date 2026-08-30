@@ -127,12 +127,44 @@ BEGIN
       IF v_type='payment_intent.succeeded' THEN UPDATE public.commerce_orders SET status='paid',paid_at=COALESCE(paid_at,now()) WHERE id=v_order_id; END IF;
 
     ELSIF v_type IN ('charge.refunded','charge.dispute.created') THEN
+      v_payment_intent_id := NULLIF(event #>> '{data,object,payment_intent}','');
+
       IF v_type='charge.refunded' THEN
-        v_amount:=(event #>> '{data,object,amount_refunded}')::bigint;
-        UPDATE public.payments SET refunded_amount=COALESCE(refunded_amount,0)+COALESCE(v_amount,0),status=CASE WHEN refunded_amount+COALESCE(v_amount,0)>=amount THEN 'refunded' ELSE 'partially_refunded' END,metadata=jsonb_set(metadata,'{refunded_event_id}',to_jsonb(v_event_id),true),updated_at=now() WHERE order_id=v_order_id;
-        UPDATE public.commerce_orders SET status=CASE WHEN EXISTS(SELECT 1 FROM public.payments p WHERE p.order_id=v_order_id AND p.status IN ('refunded','partially_refunded')) THEN status ELSE status END WHERE id=v_order_id;
+        v_amount:=COALESCE((event #>> '{data,object,amount_refunded}')::bigint,0);
+
+        UPDATE public.payments
+        SET stripe_charge_id=COALESCE(stripe_charge_id,v_charge_id),
+            refunded_amount=GREATEST(COALESCE(refunded_amount,0),v_amount),
+            status=CASE WHEN v_amount>=amount THEN 'refunded' ELSE 'partially_refunded' END,
+            metadata=jsonb_set(metadata,'{refunded_event_id}',to_jsonb(v_event_id),true),
+            updated_at=now()
+        WHERE order_id=v_order_id
+          AND (v_payment_intent_id IS NULL OR stripe_payment_intent_id=v_payment_intent_id);
+
+        UPDATE public.commerce_orders co
+        SET status=CASE
+          WHEN p.total_amount>0 AND p.total_refunded>=p.total_amount THEN 'refunded'
+          WHEN p.total_refunded>0 THEN 'partially_refunded'
+          ELSE co.status
+        END
+        FROM (
+          SELECT order_id,
+                 COALESCE(sum(amount),0) AS total_amount,
+                 COALESCE(sum(refunded_amount),0) AS total_refunded
+          FROM public.payments
+          WHERE order_id=v_order_id
+          GROUP BY order_id
+        ) p
+        WHERE co.id=v_order_id AND p.order_id=co.id;
       ELSE
-        UPDATE public.payments SET status='disputed',metadata=jsonb_set(metadata,'{dispute_event_id}',to_jsonb(v_event_id),true),updated_at=now() WHERE order_id=v_order_id;
+        UPDATE public.payments
+        SET stripe_charge_id=COALESCE(stripe_charge_id,v_charge_id),
+            status='disputed',
+            metadata=jsonb_set(metadata,'{dispute_event_id}',to_jsonb(v_event_id),true),
+            updated_at=now()
+        WHERE order_id=v_order_id
+          AND (v_payment_intent_id IS NULL OR stripe_payment_intent_id=v_payment_intent_id);
+
         UPDATE public.commerce_orders SET status='disputed' WHERE id=v_order_id;
       END IF;
     END IF;
