@@ -30,8 +30,6 @@ DECLARE
   v_payment_method_type text;
   v_failure_code text;
   v_failure_message text;
-  v_succeeded_at timestamptz;
-  v_failed_at timestamptz;
   v_processing_exception_message text;
 BEGIN
   v_event_id := event ->> 'id';
@@ -114,8 +112,6 @@ BEGIN
       v_payment_method_type:=event #>> '{data,object,payment_method_types,0}';
       v_failure_code:=event #>> '{data,object,last_payment_error,code}';
       v_failure_message:=event #>> '{data,object,last_payment_error,message}';
-      v_succeeded_at:=COALESCE((event #>> '{data,object,created}')::bigint,NULL);
-      v_failed_at:=v_succeeded_at;
 
       INSERT INTO public.payments(order_id,organization_id,contact_id,provider,provider_customer_id,provider_payment_id,stripe_payment_intent_id,amount,currency,status,payment_method_type,refunded_amount,failure_code,failure_message,succeeded_at,failed_at,metadata)
       SELECT v_order_id,
