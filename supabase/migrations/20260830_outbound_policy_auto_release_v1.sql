@@ -76,7 +76,6 @@ BEGIN
       LIMIT 1
     ) qa ON true
     WHERE q.state IN ('draft','review')
-      AND q.sequence_step = 1
       AND (q.send_after IS NULL OR q.send_after <= v_now + interval '24 hours')
       AND q.policy_passed IS TRUE
       AND q.message_quality_score >= 90
@@ -135,7 +134,6 @@ BEGIN
           'auto_approved_at', v_now,
           'standing_operator_authorization', true,
           'auto_release_contract', jsonb_build_object(
-            'first_touch_only', true,
             'approval_horizon_hours', 24,
             'message_quality_min', 90,
             'specificity_min', 90,
@@ -145,7 +143,8 @@ BEGIN
             'qa_release_required', true,
             'hard_blocks_max', 0,
             'commercial_compliance_required', true,
-            'red_team_required', true
+            'red_team_required', true,
+            'cooldown_and_touch_caps_enforced_by_sender', true
           )
         ),
         updated_at = v_now
@@ -180,13 +179,13 @@ BEGIN
         100,
         jsonb_build_array(
           'Standing operator authorization',
-          'First touch only',
           'Premium policy passed',
           'SS+ red-team passed',
           'Commercial compliance passed',
           'Published preview QA >= 90',
           'No hard QA blocks',
-          'Recipient remains unsuppressed'
+          'Recipient remains unsuppressed',
+          'Existing sender cooldown and touch caps remain active'
         ),
         v_now
       FROM public.prospect_outreach_queue q
