@@ -39,8 +39,17 @@ def cmd_score(args: argparse.Namespace) -> int:
         bundle = client.rpc(
             "cash_cli_prospect_score_input",
             {"p_prospect_profile_id": profile_id},
-        )
-        score = score_prospect(bundle or {})
+        ) or {}
+
+        # Routing math does not depend on research policy. Run once to resolve
+        # ATHRTY vs Truett Cash, then rerun with the matching policy so paid
+        # enrichment semantics remain aligned with prospect-score-v2.
+        route_probe = score_prospect(bundle)
+        routed_brand = route_probe.research["routed_brand"]
+        policies = bundle.get("policies") or {}
+        bundle["policy"] = policies.get(routed_brand) or {}
+        score = score_prospect(bundle)
+
         record = {
             "prospect_profile_id": profile_id,
             "score": score.update,
