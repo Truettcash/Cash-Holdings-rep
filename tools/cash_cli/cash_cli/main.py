@@ -81,33 +81,67 @@ def cmd_score(args: argparse.Namespace) -> int:
     return 0
 
 
+def _join_prefix(prefix: str, name: str) -> str:
+    prefix = prefix.strip("/")
+    name = name.strip("/")
+    return f"{prefix}/{name}" if prefix else name
+
+
 def _walk_storage(
     client: SupabaseClient,
     bucket: str,
     prefix: str,
+    *,
+    _visited: set[str] | None = None,
 ) -> list[str]:
+    """Recursively resolve every object key under a Storage prefix.
+
+    Supabase list responses represent folders as rows without an object id.
+    Walking those prefixes is required before the Storage API can remove all
+    physical objects beneath a nested legacy tree.
+    """
+    normalized = prefix.strip("/")
+    visited = _visited if _visited is not None else set()
+    if normalized in visited:
+        return []
+    visited.add(normalized)
+
     paths: list[str] = []
     offset = 0
     while True:
         rows = client.storage_list(
             bucket,
-            prefix=prefix,
+            prefix=normalized,
             limit=1000,
             offset=offset,
         )
         if not rows:
             break
+
         for row in rows:
-            name = str(row.get("name") or "")
+            name = str(row.get("name") or "").strip("/")
             if not name:
                 continue
-            full = f"{prefix.rstrip('/')}/{name}" if prefix else name
+            full = _join_prefix(normalized, name)
             if row.get("id"):
                 paths.append(full)
+            else:
+                paths.extend(
+                    _walk_storage(
+                        client,
+                        bucket,
+                        full,
+                        _visited=visited,
+                    )
+                )
+
         if len(rows) < 1000:
             break
         offset += len(rows)
-    return paths
+
+    # Deduping protects against unusual list pagination/folder representations
+    # while preserving stable output for dry-run review.
+    return list(dict.fromkeys(paths))
 
 
 def cmd_storage_purge(args: argparse.Namespace) -> int:
