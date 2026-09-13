@@ -29,20 +29,32 @@ def _worker_id() -> str:
     return f"{host}-cash"
 
 
+def _worker_rpc_name(client: SupabaseClient, elevated: str, worker: str) -> str:
+    return worker if client.config.worker_mode else elevated
+
+
 def _score_profile(
     client: SupabaseClient,
     profile_id: str,
     *,
     apply: bool,
 ) -> dict[str, Any]:
-    bundle = client.rpc(
-        "cash_cli_prospect_score_input",
-        {"p_prospect_profile_id": profile_id},
-    ) or {}
+    if client.config.worker_mode:
+        worker_id = _worker_id()
+        bundle = client.rpc(
+            "cash_worker_prospect_score_input_v1",
+            {
+                "p_worker_id": worker_id,
+                "p_prospect_profile_id": profile_id,
+            },
+        ) or {}
+    else:
+        bundle = client.rpc(
+            "cash_cli_prospect_score_input",
+            {"p_prospect_profile_id": profile_id},
+        ) or {}
 
     # Resolve routing first, then apply the routed brand's research policy.
-    # scoring.py also understands the `policies` shape directly; retaining the
-    # explicit selection here makes the execution contract obvious in output.
     route_probe = score_prospect(bundle)
     routed_brand = route_probe.research["routed_brand"]
     policies = bundle.get("policies") or {}
@@ -56,15 +68,18 @@ def _score_profile(
         "applied": False,
     }
     if apply:
-        applied = client.rpc(
-            "cash_cli_apply_prospect_score",
-            {
-                "p_prospect_profile_id": profile_id,
-                "p_score": score.update,
-                "p_explanation": score.explanation,
-                "p_research": score.research,
-            },
-        )
+        body = {
+            "p_prospect_profile_id": profile_id,
+            "p_score": score.update,
+            "p_explanation": score.explanation,
+            "p_research": score.research,
+        }
+        if client.config.worker_mode:
+            body["p_worker_id"] = _worker_id()
+            rpc_name = "cash_worker_apply_prospect_score_v1"
+        else:
+            rpc_name = "cash_cli_apply_prospect_score"
+        applied = client.rpc(rpc_name, body)
         record["applied"] = True
         record["result"] = applied
     return record
@@ -86,6 +101,12 @@ def _select_score_ids(client: SupabaseClient, limit: int) -> list[str]:
 
 def cmd_score(args: argparse.Namespace) -> int:
     client = _client()
+    if client.config.worker_mode:
+        raise CashCliError(
+            "Direct prospect scoring is disabled in worker-token mode. "
+            "Queue a prospect and use `cash worker drain` so the score write is "
+            "bound to a live leased job."
+        )
     ids = [args.id] if args.id else _select_score_ids(client, args.limit)
     results = [
         _score_profile(client, profile_id, apply=args.apply)
@@ -104,12 +125,21 @@ def cmd_score(args: argparse.Namespace) -> int:
 
 def cmd_enqueue(args: argparse.Namespace) -> int:
     client = _client()
+    if client.config.worker_mode and not args.id:
+        raise CashCliError(
+            "Worker-token mode requires an explicit --id when enqueueing."
+        )
     ids = [args.id] if args.id else _select_score_ids(client, args.limit)
+    rpc_name = _worker_rpc_name(
+        client,
+        "cash_cli_enqueue_prospect_score",
+        "cash_worker_enqueue_prospect_score_v1",
+    )
     results = []
     for profile_id in ids:
         results.append(
             client.rpc(
-                "cash_cli_enqueue_prospect_score",
+                rpc_name,
                 {
                     "p_prospect_profile_id": profile_id,
                     "p_reason": args.reason,
@@ -179,6 +209,7 @@ def _walk_storage(
 
 def cmd_storage_purge(args: argparse.Namespace) -> int:
     client = _client()
+    client.require_elevated("Storage maintenance")
     paths = _walk_storage(client, args.bucket, args.prefix)
     result = {
         "ok": True,
@@ -206,6 +237,7 @@ def cmd_storage_purge(args: argparse.Namespace) -> int:
 def cmd_status(args: argparse.Namespace) -> int:
     del args
     client = _client()
+    client.require_elevated("Full Cash Holdings runtime status")
     _print(client.rpc("cash_cli_runtime_status", {}))
     return 0
 
@@ -213,16 +245,26 @@ def cmd_status(args: argparse.Namespace) -> int:
 def cmd_worker_status(args: argparse.Namespace) -> int:
     del args
     client = _client()
-    _print(client.rpc("cash_cli_local_worker_status", {}))
+    rpc_name = _worker_rpc_name(
+        client,
+        "cash_cli_local_worker_status",
+        "cash_worker_local_status_v1",
+    )
+    _print(client.rpc(rpc_name, {}))
     return 0
 
 
 def cmd_worker_heartbeat(args: argparse.Namespace) -> int:
     client = _client()
     worker_id = _worker_id()
+    rpc_name = _worker_rpc_name(
+        client,
+        "cash_cli_worker_heartbeat",
+        "cash_worker_heartbeat_v1",
+    )
     _print(
         client.rpc(
-            "cash_cli_worker_heartbeat",
+            rpc_name,
             {
                 "p_worker_id": worker_id,
                 "p_version": CLI_VERSION,
@@ -236,8 +278,30 @@ def cmd_worker_heartbeat(args: argparse.Namespace) -> int:
 def cmd_worker_drain(args: argparse.Namespace) -> int:
     client = _client()
     worker_id = _worker_id()
-    client.rpc(
+
+    heartbeat_rpc = _worker_rpc_name(
+        client,
         "cash_cli_worker_heartbeat",
+        "cash_worker_heartbeat_v1",
+    )
+    claim_rpc = _worker_rpc_name(
+        client,
+        "cash_cli_claim_jobs",
+        "cash_worker_claim_jobs_v1",
+    )
+    complete_rpc = _worker_rpc_name(
+        client,
+        "cash_cli_complete_job",
+        "cash_worker_complete_job_v1",
+    )
+    fail_rpc = _worker_rpc_name(
+        client,
+        "cash_cli_fail_job",
+        "cash_worker_fail_job_v1",
+    )
+
+    client.rpc(
+        heartbeat_rpc,
         {
             "p_worker_id": worker_id,
             "p_version": CLI_VERSION,
@@ -245,7 +309,7 @@ def cmd_worker_drain(args: argparse.Namespace) -> int:
         },
     )
     jobs = client.rpc(
-        "cash_cli_claim_jobs",
+        claim_rpc,
         {
             "p_worker_id": worker_id,
             "p_job_type": "prospect_score",
@@ -254,7 +318,7 @@ def cmd_worker_drain(args: argparse.Namespace) -> int:
         },
     ) or []
     if not isinstance(jobs, list):
-        raise CashCliError("cash_cli_claim_jobs returned a non-list payload")
+        raise CashCliError("cash worker claim RPC returned a non-list payload")
 
     completed: list[dict[str, Any]] = []
     failed: list[dict[str, Any]] = []
@@ -268,7 +332,7 @@ def cmd_worker_drain(args: argparse.Namespace) -> int:
         try:
             result = _score_profile(client, profile_id, apply=True)
             complete = client.rpc(
-                "cash_cli_complete_job",
+                complete_rpc,
                 {
                     "p_job_id": job_id,
                     "p_worker_id": worker_id,
@@ -290,7 +354,7 @@ def cmd_worker_drain(args: argparse.Namespace) -> int:
             error_text = str(exc)[:1000]
             try:
                 fail_result = client.rpc(
-                    "cash_cli_fail_job",
+                    fail_rpc,
                     {
                         "p_job_id": job_id,
                         "p_worker_id": worker_id,
@@ -336,7 +400,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     status = sub.add_parser(
         "status",
-        help="Show compact Cash Holdings runtime status",
+        help="Show compact Cash Holdings runtime status (elevated auth only)",
     )
     status.set_defaults(func=cmd_status)
 
