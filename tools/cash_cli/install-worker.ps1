@@ -24,12 +24,14 @@ Write-Host "Cash Holdings local worker setup"
 Write-Host "Project: $SupabaseUrl"
 Write-Host "Worker:  $WorkerId"
 Write-Host ""
-Write-Host "Paste the Cash Holdings Supabase service-role key when prompted."
+Write-Host "Paste an elevated Cash Holdings Supabase backend key when prompted."
+Write-Host "Preferred: an sb_secret_ key created for this local worker."
+Write-Host "Legacy service_role also works. Do NOT use sb_publishable_ or anon."
 Write-Host "The key is encrypted with Windows DPAPI for this user and is never written in plaintext."
 
-$SecureSecret = Read-Host "Service role key" -AsSecureString
+$SecureSecret = Read-Host "Backend key (sb_secret_ or service_role)" -AsSecureString
 if ($SecureSecret.Length -eq 0) {
-    throw "Service role key cannot be empty."
+    throw "Backend key cannot be empty."
 }
 
 $Encrypted = ConvertFrom-SecureString $SecureSecret
