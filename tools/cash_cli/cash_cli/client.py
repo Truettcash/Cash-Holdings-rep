@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import base64
 import json
 import os
 import urllib.error
@@ -13,6 +14,25 @@ class CashCliError(RuntimeError):
     pass
 
 
+def _decode_legacy_role(key: str) -> str | None:
+    """Best-effort role read for legacy Supabase JWT API keys.
+
+    This does not verify the JWT signature; it only improves local operator
+    feedback before the request reaches Supabase.
+    """
+    parts = key.split(".")
+    if len(parts) != 3:
+        return None
+    try:
+        payload = parts[1] + ("=" * (-len(parts[1]) % 4))
+        decoded = base64.urlsafe_b64decode(payload.encode("ascii"))
+        data = json.loads(decoded.decode("utf-8"))
+    except (ValueError, UnicodeDecodeError, json.JSONDecodeError):
+        return None
+    role = data.get("role") if isinstance(data, dict) else None
+    return str(role) if role else None
+
+
 @dataclass(frozen=True)
 class SupabaseConfig:
     url: str
@@ -21,12 +41,15 @@ class SupabaseConfig:
     @classmethod
     def from_env(cls) -> "SupabaseConfig":
         url = os.environ.get("SUPABASE_URL", "").rstrip("/")
-        key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "")
+        key = (
+            os.environ.get("SUPABASE_SECRET_KEY", "")
+            or os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "")
+        ).strip()
         missing = [
             name
             for name, value in (
                 ("SUPABASE_URL", url),
-                ("SUPABASE_SERVICE_ROLE_KEY", key),
+                ("SUPABASE_SECRET_KEY or SUPABASE_SERVICE_ROLE_KEY", key),
             )
             if not value
         ]
@@ -34,6 +57,27 @@ class SupabaseConfig:
             raise CashCliError(
                 f"Missing required environment variables: {', '.join(missing)}"
             )
+
+        if key.startswith("sb_publishable_"):
+            raise CashCliError(
+                "Cash CLI requires an elevated Supabase backend key, not the "
+                "sb_publishable_ key. Use an sb_secret_ key (preferred) or the "
+                "legacy service_role key for the Cash Holdings project."
+            )
+
+        legacy_role = _decode_legacy_role(key)
+        if legacy_role == "anon":
+            raise CashCliError(
+                "Cash CLI requires an elevated Supabase backend key, not the "
+                "legacy anon key. Use an sb_secret_ key (preferred) or the "
+                "legacy service_role key for the Cash Holdings project."
+            )
+        if legacy_role and legacy_role != "service_role":
+            raise CashCliError(
+                f"Unsupported legacy Supabase JWT role: {legacy_role}. "
+                "Use an sb_secret_ key or service_role key."
+            )
+
         return cls(url=url, service_role_key=key)
 
 
@@ -54,11 +98,18 @@ class SupabaseClient:
             if body is None
             else json.dumps(body, separators=(",", ":")).encode("utf-8")
         )
+        key = self.config.service_role_key
         merged = {
-            "apikey": self.config.service_role_key,
-            "Authorization": f"Bearer {self.config.service_role_key}",
+            "apikey": key,
             "Accept": "application/json",
         }
+        # New Supabase sb_secret_ keys are opaque API keys, not JWTs. Sending
+        # them as Bearer tokens causes downstream JWT parsing failures. The API
+        # gateway promotes a valid secret key to service_role when it arrives
+        # in the apikey header. Legacy service_role keys remain JWTs and still
+        # need the Authorization header.
+        if not key.startswith("sb_secret_"):
+            merged["Authorization"] = f"Bearer {key}"
         if payload is not None:
             merged["Content-Type"] = "application/json"
         if headers:
