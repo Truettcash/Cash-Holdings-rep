@@ -45,6 +45,7 @@ def score_prospect(bundle: Mapping[str, Any]) -> ScoreResult:
     contacts: Sequence[Mapping[str, Any]] = bundle.get("contacts") or []
     provider_keys = {str(x) for x in (bundle.get("provider_keys") or [])}
     policy = dict(bundle.get("policy") or {})
+    policies = dict(bundle.get("policies") or {})
 
     best = dict(contacts[0]) if contacts else {}
     contact_q = _num(best.get("contact_quality_score"))
@@ -125,6 +126,11 @@ def score_prospect(bundle: Mapping[str, Any]) -> ScoreResult:
         + visibility * 0.04
         + dm * 0.04
     )
+
+    if not policy:
+        routed_policy = policies.get(routed_brand)
+        if isinstance(routed_policy, Mapping):
+            policy = dict(routed_policy)
 
     provider_order = policy.get("provider_order")
     if not isinstance(provider_order, list):
