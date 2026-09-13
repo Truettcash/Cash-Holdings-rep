@@ -52,6 +52,7 @@ class SupabaseConfig:
     @classmethod
     def from_env(cls) -> "SupabaseConfig":
         url = os.environ.get("SUPABASE_URL", "").rstrip("/")
+        auth_mode = os.environ.get("CASH_AUTH_MODE", "").strip()
         elevated_key = (
             os.environ.get("SUPABASE_SECRET_KEY", "")
             or os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "")
@@ -62,6 +63,30 @@ class SupabaseConfig:
 
         if not url:
             raise CashCliError("Missing required environment variable: SUPABASE_URL")
+
+        # An installed worker config explicitly selects worker-token auth. Honor
+        # that choice before looking at elevated variables so a stale user/machine
+        # service-role key cannot shadow the narrow local capability credential.
+        if auth_mode == "worker_token_v1":
+            if not publishable_key:
+                raise CashCliError(
+                    "Worker-token mode requires SUPABASE_PUBLISHABLE_KEY."
+                )
+            if not publishable_key.startswith("sb_publishable_"):
+                raise CashCliError(
+                    "Worker-token mode requires a modern sb_publishable_ key."
+                )
+            if not worker_token:
+                raise CashCliError("Worker-token mode requires CASH_WORKER_TOKEN.")
+            if not worker_id:
+                raise CashCliError("Worker-token mode requires CASH_WORKER_ID.")
+
+            return cls(
+                url=url,
+                api_key=publishable_key,
+                worker_token=worker_token,
+                worker_id=worker_id,
+            )
 
         if elevated_key:
             if elevated_key.startswith("sb_publishable_"):
