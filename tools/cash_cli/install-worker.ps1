@@ -33,7 +33,8 @@ if ($SecureSecret.Length -eq 0) {
 }
 
 $Encrypted = ConvertFrom-SecureString $SecureSecret
-Set-Content -Path $SecretPath -Value $Encrypted -Encoding UTF8
+$Utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+[System.IO.File]::WriteAllText($SecretPath, $Encrypted, $Utf8NoBom)
 
 @{
     supabase_url = $SupabaseUrl.TrimEnd("/")
