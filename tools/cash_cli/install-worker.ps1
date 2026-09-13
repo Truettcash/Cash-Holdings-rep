@@ -56,8 +56,8 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 if (-not $NoStartup) {
-    $runner = (Join-Path $ScriptRoot "run-worker.ps1").Replace('"', '""')
-    $cmd = "@echo off`r`nstart \"\" /min powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File \"$runner\" -PollSeconds 300 -BatchSize 10`r`n"
+    $runner = Join-Path $ScriptRoot "run-worker.ps1"
+    $cmd = "@echo off`r`nstart `"`" /min powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$runner`" -PollSeconds 300 -BatchSize 10`r`n"
     Set-Content -Path $StartupPath -Value $cmd -Encoding ASCII
     Write-Host "Installed current-user startup launcher: $StartupPath"
 }
