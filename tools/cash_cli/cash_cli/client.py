@@ -36,55 +36,123 @@ def _decode_legacy_role(key: str) -> str | None:
 @dataclass(frozen=True)
 class SupabaseConfig:
     url: str
-    service_role_key: str
+    api_key: str
+    bearer_token: str | None = None
+    worker_token: str | None = None
+    worker_id: str | None = None
+
+    @property
+    def worker_mode(self) -> bool:
+        return bool(self.worker_token)
+
+    @property
+    def elevated(self) -> bool:
+        return not self.worker_mode
 
     @classmethod
     def from_env(cls) -> "SupabaseConfig":
         url = os.environ.get("SUPABASE_URL", "").rstrip("/")
-        key = (
+        auth_mode = os.environ.get("CASH_AUTH_MODE", "").strip()
+        elevated_key = (
             os.environ.get("SUPABASE_SECRET_KEY", "")
             or os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "")
         ).strip()
-        missing = [
-            name
-            for name, value in (
-                ("SUPABASE_URL", url),
-                ("SUPABASE_SECRET_KEY or SUPABASE_SERVICE_ROLE_KEY", key),
-            )
-            if not value
-        ]
-        if missing:
-            raise CashCliError(
-                f"Missing required environment variables: {', '.join(missing)}"
+        publishable_key = os.environ.get("SUPABASE_PUBLISHABLE_KEY", "").strip()
+        worker_token = os.environ.get("CASH_WORKER_TOKEN", "").strip()
+        worker_id = os.environ.get("CASH_WORKER_ID", "").strip()
+
+        if not url:
+            raise CashCliError("Missing required environment variable: SUPABASE_URL")
+
+        # An installed worker config explicitly selects worker-token auth. Honor
+        # that choice before looking at elevated variables so a stale user/machine
+        # service-role key cannot shadow the narrow local capability credential.
+        if auth_mode == "worker_token_v1":
+            if not publishable_key:
+                raise CashCliError(
+                    "Worker-token mode requires SUPABASE_PUBLISHABLE_KEY."
+                )
+            if not publishable_key.startswith("sb_publishable_"):
+                raise CashCliError(
+                    "Worker-token mode requires a modern sb_publishable_ key."
+                )
+            if not worker_token:
+                raise CashCliError("Worker-token mode requires CASH_WORKER_TOKEN.")
+            if not worker_id:
+                raise CashCliError("Worker-token mode requires CASH_WORKER_ID.")
+
+            return cls(
+                url=url,
+                api_key=publishable_key,
+                worker_token=worker_token,
+                worker_id=worker_id,
             )
 
-        if key.startswith("sb_publishable_"):
-            raise CashCliError(
-                "Cash CLI requires an elevated Supabase backend key, not the "
-                "sb_publishable_ key. Use an sb_secret_ key (preferred) or the "
-                "legacy service_role key for the Cash Holdings project."
+        if elevated_key:
+            if elevated_key.startswith("sb_publishable_"):
+                raise CashCliError(
+                    "Cash CLI elevated mode requires an sb_secret_ key or legacy "
+                    "service_role key, not a publishable key."
+                )
+
+            legacy_role = _decode_legacy_role(elevated_key)
+            if legacy_role == "anon":
+                raise CashCliError(
+                    "Cash CLI elevated mode requires an sb_secret_ key or legacy "
+                    "service_role key, not the legacy anon key."
+                )
+            if legacy_role and legacy_role != "service_role":
+                raise CashCliError(
+                    f"Unsupported legacy Supabase JWT role: {legacy_role}."
+                )
+
+            bearer = None if elevated_key.startswith("sb_secret_") else elevated_key
+            return cls(
+                url=url,
+                api_key=elevated_key,
+                bearer_token=bearer,
             )
 
-        legacy_role = _decode_legacy_role(key)
-        if legacy_role == "anon":
-            raise CashCliError(
-                "Cash CLI requires an elevated Supabase backend key, not the "
-                "legacy anon key. Use an sb_secret_ key (preferred) or the "
-                "legacy service_role key for the Cash Holdings project."
-            )
-        if legacy_role and legacy_role != "service_role":
-            raise CashCliError(
-                f"Unsupported legacy Supabase JWT role: {legacy_role}. "
-                "Use an sb_secret_ key or service_role key."
+        if publishable_key or worker_token:
+            if not publishable_key:
+                raise CashCliError(
+                    "Worker-token mode requires SUPABASE_PUBLISHABLE_KEY."
+                )
+            if not publishable_key.startswith("sb_publishable_"):
+                raise CashCliError(
+                    "Worker-token mode requires a modern sb_publishable_ key."
+                )
+            if not worker_token:
+                raise CashCliError("Worker-token mode requires CASH_WORKER_TOKEN.")
+            if not worker_id:
+                raise CashCliError("Worker-token mode requires CASH_WORKER_ID.")
+
+            return cls(
+                url=url,
+                api_key=publishable_key,
+                worker_token=worker_token,
+                worker_id=worker_id,
             )
 
-        return cls(url=url, service_role_key=key)
+        raise CashCliError(
+            "Missing Supabase credentials. Use SUPABASE_SECRET_KEY or "
+            "SUPABASE_SERVICE_ROLE_KEY for elevated mode, or "
+            "SUPABASE_PUBLISHABLE_KEY + CASH_WORKER_TOKEN + CASH_WORKER_ID "
+            "for local worker mode."
+        )
 
 
 class SupabaseClient:
     def __init__(self, config: SupabaseConfig, timeout: int = 60):
         self.config = config
         self.timeout = timeout
+
+    def require_elevated(self, operation: str) -> None:
+        if self.config.worker_mode:
+            raise CashCliError(
+                f"{operation} requires elevated Supabase credentials and is not "
+                "available through the local worker capability token."
+            )
 
     def _request(
         self,
@@ -98,18 +166,15 @@ class SupabaseClient:
             if body is None
             else json.dumps(body, separators=(",", ":")).encode("utf-8")
         )
-        key = self.config.service_role_key
         merged = {
-            "apikey": key,
+            "apikey": self.config.api_key,
             "Accept": "application/json",
         }
-        # New Supabase sb_secret_ keys are opaque API keys, not JWTs. Sending
-        # them as Bearer tokens causes downstream JWT parsing failures. The API
-        # gateway promotes a valid secret key to service_role when it arrives
-        # in the apikey header. Legacy service_role keys remain JWTs and still
-        # need the Authorization header.
-        if not key.startswith("sb_secret_"):
-            merged["Authorization"] = f"Bearer {key}"
+        if self.config.bearer_token:
+            merged["Authorization"] = f"Bearer {self.config.bearer_token}"
+        if self.config.worker_mode:
+            merged["x-cash-worker-token"] = self.config.worker_token or ""
+            merged["x-cash-worker-id"] = self.config.worker_id or ""
         if payload is not None:
             merged["Content-Type"] = "application/json"
         if headers:
@@ -140,6 +205,7 @@ class SupabaseClient:
         )
 
     def select(self, table: str, params: dict[str, str]) -> Any:
+        self.require_elevated("Direct table selection")
         query = urllib.parse.urlencode(params, safe="(),.*:")
         return self._request(
             "GET",
@@ -153,6 +219,7 @@ class SupabaseClient:
         limit: int = 1000,
         offset: int = 0,
     ) -> list[dict[str, Any]]:
+        self.require_elevated("Storage listing")
         body = {
             "prefix": prefix,
             "limit": limit,
@@ -167,6 +234,7 @@ class SupabaseClient:
         return data if isinstance(data, list) else []
 
     def storage_remove(self, bucket: str, paths: list[str]) -> Any:
+        self.require_elevated("Storage deletion")
         return self._request(
             "DELETE",
             f"/storage/v1/object/{urllib.parse.quote(bucket)}",
