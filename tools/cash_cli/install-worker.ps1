@@ -2,6 +2,7 @@ param(
     [switch]$NoStartup,
     [switch]$StartNow,
     [string]$SupabaseUrl = "https://ldijllskwwmyhhbzspmb.supabase.co",
+    [string]$SupabasePublishableKey = "sb_publishable_wmF0KqEkQ03ZiB17YQIJRg_fme_o4rg",
     [string]$WorkerId = ""
 )
 
@@ -9,7 +10,7 @@ $ErrorActionPreference = "Stop"
 $ScriptRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 $ConfigDir = Join-Path $env:LOCALAPPDATA "CashHoldings\cash-cli"
 $ConfigPath = Join-Path $ConfigDir "config.json"
-$SecretPath = Join-Path $ConfigDir "service-role.dpapi"
+$WorkerTokenPath = Join-Path $ConfigDir "worker-token.dpapi"
 $StartupDir = [Environment]::GetFolderPath("Startup")
 $StartupPath = Join-Path $StartupDir "CashHoldingsLocalWorker.cmd"
 
@@ -23,36 +24,48 @@ if (-not $WorkerId) {
 Write-Host "Cash Holdings local worker setup"
 Write-Host "Project: $SupabaseUrl"
 Write-Host "Worker:  $WorkerId"
+Write-Host "Auth:    publishable key + DPAPI worker capability token"
 Write-Host ""
-Write-Host "Paste an elevated Cash Holdings Supabase backend key when prompted."
-Write-Host "Preferred: an sb_secret_ key created for this local worker."
-Write-Host "Legacy service_role also works. Do NOT use sb_publishable_ or anon."
-Write-Host "The key is encrypted with Windows DPAPI for this user and is never written in plaintext."
 
-$SecureSecret = Read-Host "Backend key (sb_secret_ or service_role)" -AsSecureString
-if ($SecureSecret.Length -eq 0) {
-    throw "Backend key cannot be empty."
+if (-not (Test-Path $WorkerTokenPath)) {
+    throw "Worker token not found at $WorkerTokenPath. Provision the DPAPI worker token before installing."
 }
 
-$Encrypted = ConvertFrom-SecureString $SecureSecret
-$Utf8NoBom = New-Object System.Text.UTF8Encoding($false)
-[System.IO.File]::WriteAllText($SecretPath, $Encrypted, $Utf8NoBom)
+$EncryptedToken = [System.IO.File]::ReadAllText($WorkerTokenPath).Trim()
+if ([string]::IsNullOrWhiteSpace($EncryptedToken)) {
+    throw "Worker token file is empty: $WorkerTokenPath"
+}
+
+# Verify that the DPAPI payload is readable by this Windows user without ever
+# printing or persisting the plaintext token.
+try {
+    $SecureToken = ConvertTo-SecureString -String $EncryptedToken -ErrorAction Stop
+    $Credential = New-Object System.Management.Automation.PSCredential("cash", $SecureToken)
+    if ([string]::IsNullOrWhiteSpace($Credential.GetNetworkCredential().Password)) {
+        throw "decrypted token is empty"
+    }
+}
+catch {
+    throw "Worker token could not be decoded for the current Windows user. $($_.Exception.Message)"
+}
 
 @{
     supabase_url = $SupabaseUrl.TrimEnd("/")
+    publishable_key = $SupabasePublishableKey
     worker_id = $WorkerId
+    auth_mode = "worker_token_v1"
     installed_at = (Get-Date).ToString("o")
     poll_seconds = 300
     batch_size = 10
 } | ConvertTo-Json | Set-Content -Path $ConfigPath -Encoding UTF8
 
-Write-Host "Validating encrypted credential against Cash Holdings..."
-& "$ScriptRoot\cash.ps1" status
+Write-Host "Validating worker capability gateway..."
+& "$ScriptRoot\cash.ps1" worker status
 if ($LASTEXITCODE -ne 0) {
-    Remove-Item $SecretPath -Force -ErrorAction SilentlyContinue
-    throw "Cash CLI validation failed. Encrypted secret was removed; no startup worker was installed."
+    throw "Cash worker gateway validation failed. Token/config were left intact for diagnosis; no startup worker was installed."
 }
 
+Write-Host "Publishing worker heartbeat..."
 & "$ScriptRoot\cash.ps1" worker heartbeat --mode install
 if ($LASTEXITCODE -ne 0) {
     throw "Worker heartbeat failed. Startup worker was not installed."
