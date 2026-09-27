@@ -1,0 +1,201 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>TC Authority Bridge</title>
+<style>
+:root{color-scheme:dark;font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+*{box-sizing:border-box}body{margin:0;background:#0a0a0a;color:#f2f0eb}
+main{padding:18px;display:flex;flex-direction:column;gap:14px}
+.eyebrow{font-size:10px;letter-spacing:.18em;color:#8d8984;font-weight:700}
+h1{font-size:24px;line-height:1;margin:0;letter-spacing:-.04em;font-weight:560}
+p{font-size:12px;line-height:1.55;color:#aaa6a0;margin:0}
+button{border:0;background:#f2f0eb;color:#0a0a0a;padding:12px 14px;font:inherit;font-weight:700;cursor:pointer}
+button:disabled{opacity:.45;cursor:default}
+#status{border:1px solid #262626;background:#0e0e0e;padding:12px;min-height:160px;max-height:260px;overflow:auto;font:11px/1.55 ui-monospace,SFMono-Regular,Menlo,monospace;white-space:pre-wrap;color:#bdb9b4}
+.good{color:#a7d4ad}.bad{color:#e59c9c}.muted{color:#706d69}
+</style>
+</head>
+<body>
+<main>
+<div class="eyebrow">TRUETT CASH / AUTHORITY PLATFORM</div>
+<h1>Branch-safe installer</h1>
+<p>Creates or opens an isolated Framer branch, writes the authority code component, mounts it at safe preview routes, then publishes only the branch preview.</p>
+<button id="run">Build branch preview</button>
+<div id="status">READY — no project changes yet.</div>
+</main>
+<script type="module">
+import { framer, isCodeFileComponentExport } from "https://esm.sh/@framer/plugin@5.1.0?bundle"
+
+const SOURCE_URL = "https://d2ol7oe51mr4n9.cloudfront.net/user_3IbnB9E1WlYY8u2oktKxHiZDB3N/cb1dec82-0527-4689-89c6-a798ba4fd6d6.tsx"
+const BRANCH_TITLE = "Truett Cash Authority v1"
+const FILE_PATH = "TruettAuthoritySite_TC.tsx"
+const routes = [
+  "/tc-preview",
+  "/tc-preview/work",
+  "/tc-preview/systems",
+  "/tc-preview/design",
+  "/tc-preview/photography",
+  "/tc-preview/motion",
+  "/tc-preview/library",
+  "/tc-preview/about",
+  "/tc-preview/inquire",
+]
+
+framer.showUI({ position: "top right", width: 380, height: 530 })
+
+const button = document.querySelector("#run")
+const status = document.querySelector("#status")
+function log(message, cls=""){
+  const line = document.createElement("div")
+  line.textContent = message
+  if(cls) line.className = cls
+  status.appendChild(line)
+  status.scrollTop = status.scrollHeight
+}
+function reset(){
+  status.innerHTML = ""
+}
+function sleep(ms){ return new Promise(r=>setTimeout(r,ms)) }
+
+function stageSource(source){
+  let out = source
+  const names = ["work","systems","design","photography","motion","library","about","inquire"]
+  for(const name of names){
+    out = out.split('"/' + name + '"').join('"/tc-preview/' + name + '"')
+  }
+  out = out.split('href="/"').join('href="/tc-preview"')
+  out = out.replace(
+    'if (last === "authority-preview") return "home"',
+    'if (last === "authority-preview" || last === "tc-preview") return "home"'
+  )
+  return out
+}
+
+async function ensureBranch(){
+  const active = await framer.getActiveBranch()
+  if(active?.title === BRANCH_TITLE){
+    log("BRANCH — already on " + BRANCH_TITLE, "good")
+    return active
+  }
+  const branches = await framer.getBranches()
+  const existing = branches.find(b => b.title === BRANCH_TITLE)
+  if(existing){
+    try{
+      await existing.switch()
+      log("BRANCH — switched to existing " + BRANCH_TITLE, "good")
+      return await framer.getActiveBranch()
+    }catch(e){
+      log("Existing branch could not be switched; creating a fresh branch.", "muted")
+    }
+  }
+  if(!framer.isAllowedTo("createBranch")) throw new Error("No permission to create a Framer branch.")
+  const created = await framer.createBranch({ title: BRANCH_TITLE })
+  log("BRANCH — created " + created.title, "good")
+  return created
+}
+
+async function ensureCodeFile(code){
+  let file = await framer.getCodeFile(FILE_PATH)
+  if(file){
+    file = await file.setFileContent(code)
+    log("CODE — updated " + FILE_PATH, "good")
+  }else{
+    file = await framer.createCodeFile(FILE_PATH, code)
+    log("CODE — created " + FILE_PATH, "good")
+  }
+
+  for(let i=0;i<45;i++){
+    const fresh = await framer.getCodeFile(file.id)
+    const exp = fresh?.exports?.find(isCodeFileComponentExport)
+    if(exp) return { file:fresh, exp }
+    await sleep(1000)
+  }
+
+  const diags = await framer.typecheckCode(FILE_PATH, code)
+  if(diags?.length) console.warn("Typecheck diagnostics", diags)
+  throw new Error("Code component did not compile into an insertable export.")
+}
+
+async function getOrCreatePage(path){
+  const pages = await framer.getNodesWithType("WebPageNode")
+  let page = pages.find(p => p.path === path)
+  if(!page){
+    page = await framer.createWebPage(path)
+    log("PAGE — created " + path)
+  }else{
+    log("PAGE — reusing " + path)
+  }
+  const children = await page.getChildren()
+  for(const child of children){
+    if(child.name === "TC Authority Shell") await child.remove()
+  }
+  return page
+}
+
+async function mountRoutes(insertURL){
+  for(const path of routes){
+    const page = await getOrCreatePage(path)
+    const instance = await framer.addComponentInstance({
+      url: insertURL,
+      parentId: page.id,
+      attributes:{
+        name:"TC Authority Shell",
+        width:"100%",
+        height:"fit-content",
+      }
+    })
+    log("MOUNT — " + path + " ✓", "good")
+  }
+}
+
+async function run(){
+  button.disabled = true
+  reset()
+  try{
+    log("CONNECT — editor plugin API ready", "good")
+    const branch = await ensureBranch()
+
+    log("SOURCE — loading canonical authority component…")
+    const res = await fetch(SOURCE_URL, { cache:"no-store" })
+    if(!res.ok) throw new Error("Authority source fetch failed: HTTP " + res.status)
+    const raw = await res.text()
+    if(!raw.includes("export default function TruettAuthoritySite")){
+      throw new Error("Authority source integrity check failed.")
+    }
+    const staged = stageSource(raw)
+    log("SOURCE — canonical component staged for /tc-preview/*", "good")
+
+    const { exp } = await ensureCodeFile(staged)
+    log("COMPILE — code component export ready", "good")
+
+    await mountRoutes(exp.insertURL)
+
+    let publishResult = null
+    if(framer.isAllowedTo("publish")){
+      log("PUBLISH — publishing branch preview…")
+      publishResult = await framer.publish()
+      log("PUBLISH — branch preview requested ✓", "good")
+    }else{
+      log("PUBLISH — skipped (current user lacks publish permission).", "muted")
+    }
+
+    const current = await framer.getActiveBranch()
+    log("")
+    log("DONE — main production was not modified.", "good")
+    log("Branch: " + current.title)
+    log("Editor: " + current.url)
+    if(publishResult) log("Deployment: " + JSON.stringify(publishResult))
+  }catch(error){
+    console.error(error)
+    log("ERROR — " + (error?.message || String(error)), "bad")
+  }finally{
+    button.disabled = false
+  }
+}
+
+button.addEventListener("click", run)
+</script>
+</body>
+</html>
