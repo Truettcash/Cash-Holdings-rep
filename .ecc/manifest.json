@@ -1,0 +1,105 @@
+{
+  "schema_version": 1,
+  "source_repository": "https://github.com/affaan-m/ECC",
+  "source_commit": "ef648e01899ba3e8dc6371642deaaf64b4477775",
+  "installation": "repository-local Codex core skills",
+  "skills": [
+    "coding-standards",
+    "frontend-patterns",
+    "backend-patterns",
+    "api-design",
+    "tdd-workflow",
+    "e2e-testing",
+    "security-review",
+    "verification-loop"
+  ],
+  "files": [
+    {
+      "path": ".agents/skills/api-design/SKILL.md",
+      "source_path": ".agents/skills/api-design/SKILL.md",
+      "git_blob_sha": "98738177f210373a352dc6b83143be793588ef96"
+    },
+    {
+      "path": ".agents/skills/api-design/agents/openai.yaml",
+      "source_path": ".agents/skills/api-design/agents/openai.yaml",
+      "git_blob_sha": "9daa40121704ad1edb7ba85c0a29e139c465412d"
+    },
+    {
+      "path": ".agents/skills/backend-patterns/SKILL.md",
+      "source_path": ".agents/skills/backend-patterns/SKILL.md",
+      "git_blob_sha": "721b67a3ec36f15dee14daae4ef2cbe4aa5e986d"
+    },
+    {
+      "path": ".agents/skills/backend-patterns/agents/openai.yaml",
+      "source_path": ".agents/skills/backend-patterns/agents/openai.yaml",
+      "git_blob_sha": "9ef9556776c98e39948e0846e01a03ef4f9bb46f"
+    },
+    {
+      "path": ".agents/skills/coding-standards/SKILL.md",
+      "source_path": ".agents/skills/coding-standards/SKILL.md",
+      "git_blob_sha": "6ca1401aa490f36d31e876a46e6b0ed4653fa41c"
+    },
+    {
+      "path": ".agents/skills/coding-standards/agents/openai.yaml",
+      "source_path": ".agents/skills/coding-standards/agents/openai.yaml",
+      "git_blob_sha": "8dd9c422880ed2ac5b7e831f0aa4fceccc4cbdb5"
+    },
+    {
+      "path": ".agents/skills/e2e-testing/SKILL.md",
+      "source_path": ".agents/skills/e2e-testing/SKILL.md",
+      "git_blob_sha": "5187aeaa3dd0dafc54fe5c0da5a85ded870c5153"
+    },
+    {
+      "path": ".agents/skills/e2e-testing/agents/openai.yaml",
+      "source_path": ".agents/skills/e2e-testing/agents/openai.yaml",
+      "git_blob_sha": "6f44f3d022e63cca2d178fbf7b50988821c1be80"
+    },
+    {
+      "path": ".agents/skills/frontend-patterns/SKILL.md",
+      "source_path": ".agents/skills/frontend-patterns/SKILL.md",
+      "git_blob_sha": "6696c275afafe9ed87b2bcb47aca555e23688e9d"
+    },
+    {
+      "path": ".agents/skills/frontend-patterns/agents/openai.yaml",
+      "source_path": ".agents/skills/frontend-patterns/agents/openai.yaml",
+      "git_blob_sha": "fb66e8499addd9a275df106732af6ac3dc4d4b45"
+    },
+    {
+      "path": ".agents/skills/security-review/SKILL.md",
+      "source_path": ".agents/skills/security-review/SKILL.md",
+      "git_blob_sha": "cb0cca0c810a903be1cda7b59e7029e6046765cb"
+    },
+    {
+      "path": ".agents/skills/security-review/agents/openai.yaml",
+      "source_path": ".agents/skills/security-review/agents/openai.yaml",
+      "git_blob_sha": "83739c87cd09662654e0aeb727976e70c1e7393e"
+    },
+    {
+      "path": ".agents/skills/tdd-workflow/SKILL.md",
+      "source_path": ".agents/skills/tdd-workflow/SKILL.md",
+      "git_blob_sha": "67300bf520db15fe9254837780dcef7cf97fd3e8"
+    },
+    {
+      "path": ".agents/skills/tdd-workflow/agents/openai.yaml",
+      "source_path": ".agents/skills/tdd-workflow/agents/openai.yaml",
+      "git_blob_sha": "7f6355cf90d9d9e6726b7bca3ac82391f3340948"
+    },
+    {
+      "path": ".agents/skills/verification-loop/SKILL.md",
+      "source_path": ".agents/skills/verification-loop/SKILL.md",
+      "git_blob_sha": "b936bc9646e3b286dbe89ab2b2a7fb47bf3ad28e"
+    },
+    {
+      "path": ".agents/skills/verification-loop/agents/openai.yaml",
+      "source_path": ".agents/skills/verification-loop/agents/openai.yaml",
+      "git_blob_sha": "e1d72dd92af84674310965281929bee79816faed"
+    }
+  ],
+  "excluded": [
+    "runtime hooks",
+    "MCP servers",
+    "global settings",
+    "native marketplace plugin",
+    "continuous learning runtime"
+  ]
+}
