@@ -99,3 +99,17 @@ A green pull request means the proposed change passed repository checks. It does
 The default path is:
 
 `task -> branch -> implementation -> validation -> PR -> QA firewall -> human approval -> merge -> authorized deployment -> observed outcome -> learning`
+
+<!-- ECC:BEGIN -->
+## ECC coding workflows
+
+This repository vendors a selected ECC core bundle in `.agents/skills/`; provenance and limitations are in `.ecc/README.md` and `.ecc/manifest.json`.
+
+- Read existing repository and directory-specific instructions first. Preserve their release, review, security, and ownership requirements; generic ECC examples do not override them or higher-priority instructions.
+- Inspect the relevant implementation and state the intended change before editing. Reuse existing patterns and keep changes within the requested scope.
+- Load only relevant skills: `coding-standards`, `frontend-patterns`, `backend-patterns`, `api-design`, `tdd-workflow`, `e2e-testing`, `security-review`, or `verification-loop`.
+- Resolve package manager, build, lint, and test commands from this repository's manifests, lockfiles, and CI. ECC's example scripts, optional skills, hooks, and slash commands are not necessarily installed. In particular, inspect manifests directly instead of invoking the unbundled `scripts/setup-package-manager.js`.
+- Use tests appropriate to changed behavior and existing project requirements. Generic coverage targets do not silently add new gates. Do not add dependencies or rewrite application architecture merely to match an example.
+- Run checks with exit status preserved; avoid piping a check into head/tail in a way that masks failure. Redact sensitive matches rather than printing credentials.
+- Review the final diff for regressions, security exposure, and unrelated changes. Report the checks actually run, remaining limitations, and the exact branch/commit or PR outcome. A successful commit is not proof of a deployment.
+<!-- ECC:END -->
