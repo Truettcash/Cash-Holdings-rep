@@ -60,6 +60,13 @@ class BuildOrchestrator:
         project_id: str | None = None,
         preview_url: str | None = None,
     ) -> dict[str, Any]:
+        project_url = project_url.strip()
+        if not project_url.startswith(("https://", "http://")):
+            raise SiteMachineError("Project URL must be an absolute http(s) URL.")
+        if "..." in project_url or project_url.endswith("/projects/"):
+            raise SiteMachineError(
+                "Project URL is a placeholder/incomplete URL. Attach the real provider project URL."
+            )
         build = self.load_build(build_id)
         site_path = self.factory.sites / f"{build['siteKey']}.json"
         site = _read_json(site_path) if site_path.exists() else {}
