@@ -79,22 +79,62 @@ class _NoRedirect(urllib.request.HTTPRedirectHandler):
         return None
 
 
+def _extract_supabase_verify_url(value: str, supabase_url: str) -> str:
+    expected = urllib.parse.urlparse(supabase_url)
+    queue = [value.strip()]
+    seen: set[str] = set()
+
+    while queue and len(seen) < 40:
+        candidate = queue.pop(0)
+        if not candidate or candidate in seen:
+            continue
+        seen.add(candidate)
+
+        # Decode common email-provider/tracking wrappers without requesting them.
+        decoded = candidate
+        for _ in range(4):
+            next_value = urllib.parse.unquote(decoded)
+            if next_value == decoded:
+                break
+            decoded = next_value
+            if decoded not in seen:
+                queue.append(decoded)
+
+        try:
+            parsed = urllib.parse.urlparse(candidate)
+        except Exception:
+            continue
+
+        if (
+            parsed.scheme == "https"
+            and parsed.hostname == expected.hostname
+            and parsed.path.startswith("/auth/v1/verify")
+        ):
+            return candidate
+
+        # Tracking links usually place the real URL in a query parameter.
+        query = urllib.parse.parse_qs(parsed.query, keep_blank_values=True)
+        for values in query.values():
+            for item in values:
+                if item and item not in seen:
+                    queue.append(item)
+
+        # Some wrappers put the destination into the path.
+        if parsed.path:
+            queue.append(parsed.path.lstrip("/"))
+
+    raise MagicLinkBootstrapError(
+        "Could not find the Cash Supabase /auth/v1/verify URL inside the copied email link. "
+        "Use Copy link address on the actual sign-in button from the newest unused email."
+    )
+
+
 def _resolve_magic_link(magic_url: str, supabase_url: str, publishable_key: str) -> str:
     value = magic_url.strip()
     if not value:
         raise MagicLinkBootstrapError("No magic-link URL was provided")
 
-    parsed = urllib.parse.urlparse(value)
-    expected = urllib.parse.urlparse(supabase_url)
-
-    if parsed.scheme != "https" or parsed.hostname != expected.hostname:
-        raise MagicLinkBootstrapError(
-            "The pasted link is not the Cash Supabase magic-link URL."
-        )
-    if not parsed.path.startswith("/auth/v1/verify"):
-        raise MagicLinkBootstrapError(
-            "The pasted link is not a Supabase Auth verification link."
-        )
+    value = _extract_supabase_verify_url(value, supabase_url)
 
     opener = urllib.request.build_opener(_NoRedirect)
     req = urllib.request.Request(
@@ -223,21 +263,33 @@ def bootstrap_magic_link(email: str, state_root: str = "~/.cash-mcp") -> str:
             "Cash MCP config is missing supabase_url or publishable_key"
         )
 
-    _post(
-        f"{supabase_url}/auth/v1/otp",
-        publishable_key,
-        {
-            "email": email,
-            "create_user": False,
-        },
-    )
+    sent_new = True
+    try:
+        _post(
+            f"{supabase_url}/auth/v1/otp",
+            publishable_key,
+            {
+                "email": email,
+                "create_user": False,
+            },
+        )
+    except MagicLinkBootstrapError as exc:
+        message = str(exc)
+        if "429" in message and "over_email_send_rate_limit" in message:
+            sent_new = False
+        else:
+            raise
 
     print("")
-    print("Magic link sent.")
+    if sent_new:
+        print("Magic link sent.")
+    else:
+        print("Supabase email rate limit is active.")
+        print("No new email was sent. Use the newest UNUSED magic-link email already in your inbox.")
     print("1. Open the newest Supabase sign-in email.")
     print("2. DO NOT click the link.")
-    print("3. Right-click the sign-in button/link and choose Copy link address.")
-    print("4. Paste that Supabase magic-link URL below.")
+    print("3. Right-click the actual sign-in button/link and choose Copy link address.")
+    print("4. Paste the copied URL below. Gmail/tracking wrappers are accepted and unwrapped locally.")
     print("")
     magic_url = getpass.getpass(
         "Paste magic-link URL here (hidden so auth material is not echoed): "
