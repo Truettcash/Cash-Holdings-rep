@@ -136,7 +136,13 @@ def run_agent_task(job: dict[str, Any], workspace_root: str) -> dict[str, Any]:
     elif exe_name.startswith("codex"):
         # Codex explicitly supports '-' as the stdin prompt sentinel.
         # This avoids Windows cmd.exe quoting/parsing of multiline prompts.
-        result = _run(command + ["-"], cwd=str(Path(workspace_root)), input_text=prompt)
+        # The Site Machine workspace is intentionally not a Git repo; skip that guard
+        # because project identity/versioning is enforced by the Site Factory + provider.
+        result = _run(
+            command + ["--skip-git-repo-check", "-"],
+            cwd=str(Path(workspace_root)),
+            input_text=prompt,
+        )
     else:
         result = _run(command + [str(prompt_file)], cwd=str(Path(workspace_root)))
 
