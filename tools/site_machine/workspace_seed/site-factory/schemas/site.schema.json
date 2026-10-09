@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Cash Site Manifest",
+  "type": "object",
+  "required": ["siteKey", "displayName", "platform", "status", "goals", "patternRefs"],
+  "properties": {
+    "siteKey": {"type":"string"},
+    "displayName": {"type":"string"},
+    "platform": {"type":"string"},
+    "projectUrl": {"type":["string","null"]},
+    "status": {"enum":["discovered","registered","active","archived"]},
+    "industry": {"type":["string","null"]},
+    "goals": {"type":"array","items":{"type":"string"}},
+    "audiences": {"type":"array","items":{"type":"string"}},
+    "renderModel": {"enum":["unknown","canvas-native","code-component","cms-driven","hybrid"]},
+    "patternRefs": {"type":"array","items":{"type":"string"}},
+    "notes": {"type":"array","items":{"type":"string"}}
+  }
+}
