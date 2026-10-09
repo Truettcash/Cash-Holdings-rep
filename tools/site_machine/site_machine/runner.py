@@ -5,6 +5,8 @@ import os
 import shlex
 import shutil
 import subprocess
+import threading
+from collections import deque
 from pathlib import Path
 from typing import Any
 
@@ -37,27 +39,62 @@ def _run(
     input_text: str | None = None,
 ) -> dict[str, Any]:
     resolved = _resolve_command(argv)
+    stdout_tail: deque[str] = deque(maxlen=1200)
+    stderr_tail: deque[str] = deque(maxlen=1200)
+
     try:
-        proc = subprocess.run(
+        proc = subprocess.Popen(
             resolved,
             cwd=cwd,
-            capture_output=True,
+            stdin=subprocess.PIPE if input_text is not None else None,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
             text=True,
-            timeout=timeout,
+            bufsize=1,
             shell=False,
-            input=input_text,
         )
-        return {
-            "ok": proc.returncode == 0,
-            "exitCode": proc.returncode,
-            "stdout": proc.stdout[-30000:],
-            "stderr": proc.stderr[-30000:],
-            "command": resolved,
-        }
     except FileNotFoundError as exc:
         raise SiteMachineError(
             f"Local agent executable could not be launched: {resolved[0] if resolved else argv[0]}"
         ) from exc
+
+    def pump(stream: Any, target: deque[str], prefix: str) -> None:
+        if stream is None:
+            return
+        for line in iter(stream.readline, ""):
+            target.append(line)
+            # Surface progress in real time so orchestration never looks frozen.
+            print(f"{prefix}{line}", end="", flush=True)
+        stream.close()
+
+    out_thread = threading.Thread(target=pump, args=(proc.stdout, stdout_tail, ""), daemon=True)
+    err_thread = threading.Thread(target=pump, args=(proc.stderr, stderr_tail, "[agent] "), daemon=True)
+    out_thread.start()
+    err_thread.start()
+
+    if input_text is not None and proc.stdin is not None:
+        proc.stdin.write(input_text)
+        proc.stdin.close()
+
+    try:
+        proc.wait(timeout=timeout)
+    except subprocess.TimeoutExpired:
+        proc.kill()
+        proc.wait(timeout=10)
+        raise SiteMachineError(
+            f"Local agent exceeded {timeout}s timeout. Last stderr: {''.join(stderr_tail)[-2000:]}"
+        )
+    finally:
+        out_thread.join(timeout=5)
+        err_thread.join(timeout=5)
+
+    return {
+        "ok": proc.returncode == 0,
+        "exitCode": proc.returncode,
+        "stdout": "".join(stdout_tail)[-30000:],
+        "stderr": "".join(stderr_tail)[-30000:],
+        "command": resolved,
+    }
 
 
 def _agent_command() -> list[str]:
@@ -139,7 +176,18 @@ def run_agent_task(job: dict[str, Any], workspace_root: str) -> dict[str, Any]:
         # The Site Machine workspace is intentionally not a Git repo; skip that guard
         # because project identity/versioning is enforced by the Site Factory + provider.
         result = _run(
-            command + ["--skip-git-repo-check", "-"],
+            [
+                command[0],
+                "--ask-for-approval",
+                "never",
+                "exec",
+                "--sandbox",
+                "workspace-write",
+                "-c",
+                "sandbox_workspace_write.network_access=true",
+                "--skip-git-repo-check",
+                "-",
+            ],
             cwd=str(Path(workspace_root)),
             input_text=prompt,
         )
