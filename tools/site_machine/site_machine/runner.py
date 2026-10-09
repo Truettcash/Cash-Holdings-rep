@@ -29,7 +29,13 @@ def _resolve_command(argv: list[str]) -> list[str]:
     return argv
 
 
-def _run(argv: list[str], *, cwd: str | None = None, timeout: int = 1800) -> dict[str, Any]:
+def _run(
+    argv: list[str],
+    *,
+    cwd: str | None = None,
+    timeout: int = 1800,
+    input_text: str | None = None,
+) -> dict[str, Any]:
     resolved = _resolve_command(argv)
     try:
         proc = subprocess.run(
@@ -39,6 +45,7 @@ def _run(argv: list[str], *, cwd: str | None = None, timeout: int = 1800) -> dic
             text=True,
             timeout=timeout,
             shell=False,
+            input=input_text,
         )
         return {
             "ok": proc.returncode == 0,
@@ -127,7 +134,9 @@ def run_agent_task(job: dict[str, Any], workspace_root: str) -> dict[str, Any]:
     if exe_name.startswith("claude"):
         result = _run(command + [prompt], cwd=str(Path(workspace_root)))
     elif exe_name.startswith("codex"):
-        result = _run(command + [prompt], cwd=str(Path(workspace_root)))
+        # Codex explicitly supports '-' as the stdin prompt sentinel.
+        # This avoids Windows cmd.exe quoting/parsing of multiline prompts.
+        result = _run(command + ["-"], cwd=str(Path(workspace_root)), input_text=prompt)
     else:
         result = _run(command + [str(prompt_file)], cwd=str(Path(workspace_root)))
 
