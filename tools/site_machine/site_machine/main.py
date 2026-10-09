@@ -200,6 +200,7 @@ def cmd_build_site(args: argparse.Namespace) -> int:
         build_id=args.build_id,
         max_passes=args.max_passes,
         skip_qa=args.skip_qa,
+        allow_main=args.allow_main,
     )
     _print(result)
     return 0
@@ -283,6 +284,11 @@ def build_parser() -> argparse.ArgumentParser:
     build_site.add_argument("--build-id", required=True)
     build_site.add_argument("--max-passes", type=int, default=3)
     build_site.add_argument("--skip-qa", action="store_true")
+    build_site.add_argument(
+        "--allow-main",
+        action="store_true",
+        help="Permit direct edits to main for generator-origin builds when provider branching is unavailable.",
+    )
     build_site.set_defaults(func=cmd_build_site)
 
     outcome = sub.add_parser("record-outcome")
