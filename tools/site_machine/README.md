@@ -99,3 +99,43 @@ The workspace contract lives at:
 The factory is intentionally platform-aware. Framer External Agents can inspect and modify authorized projects, but some project-container settings are not exposed. New Framer sites should therefore begin from a blank/template project container when necessary, then the Site Machine can generate the editable site inside it.
 
 Production publishing remains human-gated.
+
+
+## V2 closed-loop commands
+
+After reinstalling the package:
+
+    cash-site-machine factory-status
+
+Create a new site intent/build:
+
+    cash-site-machine new-site --name "Acme HVAC" --prompt "Build a premium commercial HVAC lead-gen site" --platform framer --industry "commercial HVAC"
+
+Attach an existing Framer project container at creation time:
+
+    cash-site-machine new-site --name "Acme HVAC" --prompt "..." --platform framer --project-url "https://framer.com/projects/..."
+
+Responsive browser QA:
+
+    cash-site-machine qa-url --url "https://preview.example.com" --name "acme-hvac"
+
+Record outcome evidence:
+
+    cash-site-machine record-outcome --site-key acme-hvac --signal human_approved --pattern hero-industrial-proof-v3
+
+Run the recursive pattern cycle:
+
+    cash-site-machine pattern-cycle
+
+Review eligible cross-site applications:
+
+    cash-site-machine propagation-candidates --pattern-id hero-industrial-proof-v3
+
+### Automatic project containers
+
+Set `SITE_MACHINE_CONTAINER_CMD` to a trusted local provisioner that:
+1. accepts one JSON request on stdin,
+2. creates or clones the provider project,
+3. returns JSON containing at least `projectUrl`.
+
+Until a provider is configured, Framer builds without a project URL remain safely `waiting_for_container`; the machine does not fabricate project creation.
