@@ -48,7 +48,7 @@ if (-not (Get-Command node -ErrorAction SilentlyContinue)) {
 $CashConfig = Join-Path $env:USERPROFILE ".cash-mcp\config.json"
 $CashSession = Join-Path $env:USERPROFILE ".cash-mcp\session.json"
 $RepoRoot = Resolve-Path (Join-Path $Root "..\..")
-$Bootstrap = Join-Path $RepoRoot "runtime\bootstrap\bootstrap_cash_session.py"
+$Bootstrap = Join-Path $Root "site_machine\magic_link_bootstrap.py"
 
 if (-not (Test-Path $CashConfig)) {
   throw "Existing Cash MCP config not found at $CashConfig"
@@ -73,16 +73,16 @@ if ($NeedsBootstrap) {
   }
 
   Write-Host ""
-  Write-Host "Cash MCP refresh session is missing."
-  Write-Host "A fresh refresh-capable session will be created through Supabase Auth."
-  $CashEmail = Read-Host "Cash login email"
+  Write-Host "Cash MCP refresh session is missing or invalid."
+  Write-Host "A fresh refresh-capable session will be created with a Supabase magic link."
+  $CashEmail = Read-Host "Cash magic-link email"
   if (-not $CashEmail) {
-    throw "Cash login email is required to bootstrap the session."
+    throw "Cash magic-link email is required to bootstrap the session."
   }
 
   & python $Bootstrap --email $CashEmail
   if ($LASTEXITCODE -ne 0) {
-    throw "Cash MCP session bootstrap failed."
+    throw "Cash magic-link session bootstrap failed."
   }
 
   if (-not (Test-Path $CashSession)) {
@@ -126,20 +126,20 @@ if ($StatusExit -ne 0) {
   ) {
     Write-Host ""
     Write-Host "Stored Cash refresh session is invalid or revoked."
-    Write-Host "Creating a fresh Supabase Auth session now."
+    Write-Host "Creating a fresh Supabase magic-link session now."
 
     if (-not (Test-Path $Bootstrap)) {
-      throw "Cash session is invalid and bootstrap script was not found at $Bootstrap"
+      throw "Cash session is invalid and magic-link bootstrap was not found at $Bootstrap"
     }
 
-    $CashEmail = Read-Host "Cash login email"
+    $CashEmail = Read-Host "Cash magic-link email"
     if (-not $CashEmail) {
-      throw "Cash login email is required to refresh the local Cash session."
+      throw "Cash magic-link email is required to refresh the local Cash session."
     }
 
     & python $Bootstrap --email $CashEmail
     if ($LASTEXITCODE -ne 0) {
-      throw "Cash MCP session bootstrap failed."
+      throw "Cash magic-link session bootstrap failed."
     }
 
     Write-Host "Re-validating refreshed Cash session..."
