@@ -150,7 +150,10 @@ Execution rules:
 - Never propagate a pattern across sites without per-site review and QA.
 - Use the already-installed Framer External Agent connection when the task targets Framer.
 - Do NOT rerun `npx @framer/agent setup` inside a build task; setup is installer-owned.
-- Framer changes must stay on an agent branch. Do not publish production unless authority is RELEASE_REQUIRED and explicit release approval is present.
+- Obey the supplied authority exactly.
+- If authority is BRANCH_ONLY, Framer changes must stay on an agent branch.
+- If authority is MAIN_EDIT_ALLOWED, direct edits to the proved generated project main canvas are permitted, but production publishing remains forbidden.
+- Never publish production unless authority is RELEASE_REQUIRED and explicit release approval is present.
 - Inspect the actual mounted/rendered source before changing a visible component.
 - Preserve requested elements exactly.
 - Use local tools, files, GitHub, Rive, Figma or other configured providers only when relevant.
