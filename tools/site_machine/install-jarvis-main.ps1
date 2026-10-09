@@ -153,38 +153,29 @@ finally {
 if ($InstallRive) {
   $RiveExisting = Get-Command rive -ErrorAction SilentlyContinue
   if (-not $RiveExisting) {
-    $Bash = Get-Command bash -ErrorAction SilentlyContinue
-    if (-not $Bash) {
-      $GitBash = "C:\Program Files\Git\bin\bash.exe"
-      if (Test-Path $GitBash) {
-        $Bash = [PSCustomObject]@{ Source = $GitBash }
-      }
+    Write-Host "Installing Rive CLI with the official Windows installer..."
+    try {
+      $RiveInstaller = Invoke-RestMethod -Uri "https://releases.rive.app/cli/install.ps1"
+      Invoke-Expression $RiveInstaller
     }
+    catch {
+      Write-Warning ("Rive CLI installation failed: " + $_.Exception.Message)
+    }
+  }
 
-    $Curl = Get-Command curl.exe -ErrorAction SilentlyContinue
-    if ($Bash -and $Curl) {
-      Write-Host "Installing Rive CLI..."
-      & $Bash.Source -lc "curl -fsSL https://releases.rive.app/cli/install.sh | sh"
-      if ($LASTEXITCODE -ne 0) {
-        Write-Warning "Rive CLI installer returned a non-zero exit code."
-      }
-      $RiveBin = Join-Path $env:USERPROFILE ".rive\bin"
-      if (Test-Path $RiveBin) {
-        if (-not (($env:Path -split ';') -contains $RiveBin)) {
-          $env:Path = "$RiveBin;$env:Path"
-        }
-        $UserPath = [Environment]::GetEnvironmentVariable("Path", "User")
-        $UserParts = @()
-        if ($UserPath) {
-          $UserParts = $UserPath -split ';' | Where-Object { $_ }
-        }
-        if (-not ($UserParts -contains $RiveBin)) {
-          [Environment]::SetEnvironmentVariable("Path", (($UserParts + $RiveBin) -join ';'), "User")
-        }
-      }
+  $RiveBin = Join-Path $env:USERPROFILE ".rive\bin"
+  if (Test-Path $RiveBin) {
+    if (-not (($env:Path -split ';') -contains $RiveBin)) {
+      $env:Path = "$RiveBin;$env:Path"
     }
-    else {
-      Write-Warning "Rive CLI install requested, but bash/curl are unavailable. Git Bash is accepted if installed."
+    $UserPath = [Environment]::GetEnvironmentVariable("Path", "User")
+    $UserParts = @()
+    if ($UserPath) {
+      $UserParts = $UserPath -split ';' | Where-Object { $_ }
+    }
+    if (-not ($UserParts -contains $RiveBin)) {
+      [Environment]::SetEnvironmentVariable("Path", (($UserParts + $RiveBin) -join ';'), "User")
+      Write-Host "Added Rive CLI to user PATH: $RiveBin"
     }
   }
 }
