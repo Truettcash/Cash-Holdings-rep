@@ -12,6 +12,8 @@ from typing import Any
 
 from .capabilities import detect_capabilities
 from .client import CashSessionClient, SiteMachineError
+from .factory import SiteFactory
+from .qa import browser_qa
 from .runner import run_agent_task
 
 VERSION = "cash-site-machine-v1"
@@ -153,6 +155,49 @@ def cmd_local_status(_: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_factory_status(_: argparse.Namespace) -> int:
+    _print(SiteFactory(_workspace()).status())
+    return 0
+
+
+def cmd_new_site(args: argparse.Namespace) -> int:
+    factory = SiteFactory(_workspace())
+    result = factory.new_site(
+        name=args.name,
+        prompt=args.prompt,
+        platform=args.platform,
+        industry=args.industry,
+        project_url=args.project_url,
+        container_cmd=os.environ.get("SITE_MACHINE_CONTAINER_CMD"),
+    )
+    _print(result)
+    return 0
+
+
+def cmd_record_outcome(args: argparse.Namespace) -> int:
+    factory = SiteFactory(_workspace())
+    result = factory.record_outcome(
+        site_key=args.site_key,
+        signal=args.signal,
+        value=args.value,
+        pattern_ids=args.pattern,
+        notes=args.notes,
+    )
+    _print(result)
+    return 0
+
+
+def cmd_propagation_candidates(args: argparse.Namespace) -> int:
+    _print(SiteFactory(_workspace()).propagation_candidates(args.pattern_id))
+    return 0
+
+
+def cmd_qa_url(args: argparse.Namespace) -> int:
+    root = os.path.join(_workspace(), "qa", args.name or str(int(time.time())))
+    _print(browser_qa(args.url, root, args.viewport))
+    return 0
+
+
 def cmd_status(_: argparse.Namespace) -> int:
     client = _client()
     heartbeat(client, "status")
@@ -174,6 +219,35 @@ def build_parser() -> argparse.ArgumentParser:
     sub = parser.add_subparsers(dest="command", required=True)
     local_status = sub.add_parser("local-status")
     local_status.set_defaults(func=cmd_local_status)
+
+    factory_status = sub.add_parser("factory-status")
+    factory_status.set_defaults(func=cmd_factory_status)
+
+    new_site = sub.add_parser("new-site")
+    new_site.add_argument("--name", required=True)
+    new_site.add_argument("--prompt", required=True)
+    new_site.add_argument("--platform", default="framer")
+    new_site.add_argument("--industry")
+    new_site.add_argument("--project-url")
+    new_site.set_defaults(func=cmd_new_site)
+
+    outcome = sub.add_parser("record-outcome")
+    outcome.add_argument("--site-key", required=True)
+    outcome.add_argument("--signal", required=True)
+    outcome.add_argument("--value", type=float)
+    outcome.add_argument("--pattern", action="append", default=[])
+    outcome.add_argument("--notes")
+    outcome.set_defaults(func=cmd_record_outcome)
+
+    propagation = sub.add_parser("propagation-candidates")
+    propagation.add_argument("--pattern-id", required=True)
+    propagation.set_defaults(func=cmd_propagation_candidates)
+
+    qa = sub.add_parser("qa-url")
+    qa.add_argument("--url", required=True)
+    qa.add_argument("--name")
+    qa.add_argument("--viewport", action="append", choices=["desktop","laptop","tablet","mobile"])
+    qa.set_defaults(func=cmd_qa_url)
     status = sub.add_parser("status")
     status.set_defaults(func=cmd_status)
     once = sub.add_parser("once")
