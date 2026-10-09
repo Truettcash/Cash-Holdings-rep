@@ -149,32 +149,44 @@ if ($StatusExit -ne 0) {
   }
 }
 
-if ($StatusExit -ne 0) {
-  Write-Host $StatusOutput
-  throw "Cash Site Machine auth validation failed. Daemon was not started."
+$CloudReady = ($StatusExit -eq 0)
+
+if ($CloudReady) {
+  # Per-user startup; no administrator elevation required.
+  $Command = '"' + $Executable + '" daemon'
+  New-Item -Path $RunKey -Force | Out-Null
+  Set-ItemProperty -Path $RunKey -Name $RunName -Value $Command
+
+  Get-Process -Name "cash-site-machine" -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+  Start-Process -FilePath $Executable -ArgumentList "daemon" -WorkingDirectory $Workspace -WindowStyle Hidden
+  Start-Sleep -Seconds 3
 }
-
-# Per-user startup; no administrator elevation required.
-$Command = '"' + $Executable + '" daemon'
-New-Item -Path $RunKey -Force | Out-Null
-Set-ItemProperty -Path $RunKey -Name $RunName -Value $Command
-
-# Stop any stale local worker instance and start the updated one hidden.
-Get-Process -Name "cash-site-machine" -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
-Start-Process -FilePath $Executable -ArgumentList "daemon" -WorkingDirectory $Workspace -WindowStyle Hidden
-
-Start-Sleep -Seconds 3
+else {
+  # Route around broken Supabase user-session bootstrap.
+  # Local Framer/Claude/Codex execution remains fully usable; cloud queue pairing is deferred.
+  Remove-ItemProperty -Path $RunKey -Name $RunName -ErrorAction SilentlyContinue
+  Write-Host ""
+  Write-Host "Cloud control-plane pairing is deferred."
+  Write-Host "Jarvis Main is installed in LOCAL-ONLY Site Machine mode."
+  Write-Host "Framer External Agent, Claude/Codex, Git, and local build tooling can be used now."
+  Write-Host "No Supabase daemon will start until cloud auth is paired later."
+}
 
 Write-Host ""
 Write-Host "Installed: Cash Site Machine - Jarvis Main"
 Write-Host "Workspace: $Workspace"
-Write-Host "Startup: per-user HKCU Run key (no admin required)"
-Write-Host "Auth: existing ~/.cash-mcp owner session; no service-role key stored locally"
+Write-Host ("Mode: " + $(if ($CloudReady) { "cloud-connected" } else { "local-only" }))
 Write-Host ""
 Write-Host "One-time Framer authorization:"
 Write-Host "  Open Claude Code or Codex in $Workspace"
 Write-Host "  Run /framer"
 Write-Host "  Connect each Framer project this machine should control"
 Write-Host ""
-Write-Host "Verify:"
-Write-Host $StatusOutput
+Write-Host "Local verification:"
+& $Executable local-status
+
+if ($CloudReady) {
+  Write-Host ""
+  Write-Host "Cloud verification:"
+  Write-Host $StatusOutput
+}
