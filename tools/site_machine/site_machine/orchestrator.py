@@ -222,8 +222,12 @@ End with one JSON object containing:
 {"projectIdentityProved":true|false,"recommendedVariant":"...","selectedPatterns":["..."],"blockers":["..."]}""",
         )
         build["orchestration"]["stages"].append({"stage": "plan", "result": plan})
-        if not plan.get("ok"):
+        plan_structured = plan.get("structured") or {}
+        plan_blockers = list(plan_structured.get("blockers") or [])
+        identity_proved = plan_structured.get("projectIdentityProved")
+        if (not plan.get("ok")) or plan_blockers or identity_proved is False:
             build["status"] = "blocked"
+            build["orchestration"]["blockers"] = plan_blockers or ["Planner did not prove project identity."]
             self.save_build(build)
             return build
 
@@ -241,12 +245,14 @@ End with one JSON object containing:
 {"changed":true|false,"previewUrl":"... or null","projectUrl":"...","filesOrNodes":["..."],"validation":["..."],"blockers":["..."]}""",
         )
         build["orchestration"]["stages"].append({"stage": "build", "result": build_result})
-        if not build_result.get("ok"):
+        structured = build_result.get("structured") or {}
+        build_blockers = list(structured.get("blockers") or [])
+        if (not build_result.get("ok")) or build_blockers:
             build["status"] = "blocked"
+            build["orchestration"]["blockers"] = build_blockers or ["Builder exited unsuccessfully."]
             self.save_build(build)
             return build
 
-        structured = build_result.get("structured") or {}
         preview_url = structured.get("previewUrl") or container.get("previewUrl")
         if preview_url:
             build["container"]["previewUrl"] = preview_url
