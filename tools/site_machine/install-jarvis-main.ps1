@@ -9,7 +9,8 @@ $Root = Split-Path -Parent $MyInvocation.MyCommand.Path
 $Workspace = Join-Path $env:USERPROFILE "CashSiteMachine"
 $Venv = Join-Path $Workspace ".venv"
 $Python = Join-Path $Venv "Scripts\python.exe"
-$Executable = Join-Path $Venv "Scripts\cash-site-machine.exe"
+$ScriptsDir = Join-Path $Venv "Scripts"
+$Executable = Join-Path $ScriptsDir "cash-site-machine.exe"
 $RunKey = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run"
 $RunName = "CashSiteMachineJarvisMain"
 
@@ -124,6 +125,22 @@ if (-not (Test-Path $Python)) {
 & $Python -m pip install --upgrade pip
 & $Python -m pip install --upgrade $Root
 
+# Make the Site Machine CLI callable as 'cash-site-machine' in this shell and future user shells.
+if (-not (($env:Path -split ';') -contains $ScriptsDir)) {
+  $env:Path = "$ScriptsDir;$env:Path"
+}
+
+$UserPath = [Environment]::GetEnvironmentVariable("Path", "User")
+$UserParts = @()
+if ($UserPath) {
+  $UserParts = $UserPath -split ';' | Where-Object { $_ }
+}
+if (-not ($UserParts -contains $ScriptsDir)) {
+  $NewUserPath = (($UserParts + $ScriptsDir) -join ';')
+  [Environment]::SetEnvironmentVariable("Path", $NewUserPath, "User")
+  Write-Host "Added Site Machine CLI to user PATH: $ScriptsDir"
+}
+
 Write-Host "Installing/updating Framer External Agent skills..."
 Push-Location $Workspace
 try {
@@ -137,6 +154,13 @@ if ($InstallRive) {
   $RiveExisting = Get-Command rive -ErrorAction SilentlyContinue
   if (-not $RiveExisting) {
     $Bash = Get-Command bash -ErrorAction SilentlyContinue
+    if (-not $Bash) {
+      $GitBash = "C:\Program Files\Git\bin\bash.exe"
+      if (Test-Path $GitBash) {
+        $Bash = [PSCustomObject]@{ Source = $GitBash }
+      }
+    }
+
     $Curl = Get-Command curl.exe -ErrorAction SilentlyContinue
     if ($Bash -and $Curl) {
       Write-Host "Installing Rive CLI..."
@@ -144,9 +168,23 @@ if ($InstallRive) {
       if ($LASTEXITCODE -ne 0) {
         Write-Warning "Rive CLI installer returned a non-zero exit code."
       }
+      $RiveBin = Join-Path $env:USERPROFILE ".rive\bin"
+      if (Test-Path $RiveBin) {
+        if (-not (($env:Path -split ';') -contains $RiveBin)) {
+          $env:Path = "$RiveBin;$env:Path"
+        }
+        $UserPath = [Environment]::GetEnvironmentVariable("Path", "User")
+        $UserParts = @()
+        if ($UserPath) {
+          $UserParts = $UserPath -split ';' | Where-Object { $_ }
+        }
+        if (-not ($UserParts -contains $RiveBin)) {
+          [Environment]::SetEnvironmentVariable("Path", (($UserParts + $RiveBin) -join ';'), "User")
+        }
+      }
     }
     else {
-      Write-Warning "Rive CLI install requested, but bash/curl are unavailable. Install manually and rerun local-status."
+      Write-Warning "Rive CLI install requested, but bash/curl are unavailable. Git Bash is accepted if installed."
     }
   }
 }
