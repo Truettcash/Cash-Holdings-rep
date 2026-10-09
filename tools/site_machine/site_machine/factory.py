@@ -210,6 +210,81 @@ class SiteFactory:
 
         return {"outcome": record, "patternsUpdated": changed}
 
+    def pattern_cycle(self) -> dict[str, Any]:
+        patterns: list[dict[str, Any]] = []
+        promotions: list[dict[str, Any]] = []
+        constraints: list[dict[str, Any]] = []
+        propagation: list[dict[str, Any]] = []
+        variant_reviews: list[dict[str, Any]] = []
+
+        for path in self.patterns.glob("*.json"):
+            pattern = _read_json(path)
+            pattern_id = str(pattern.get("id") or path.stem)
+            confidence = float(pattern.get("confidence") or 0.0)
+            observations = list(pattern.get("observations") or [])
+            status = str(pattern.get("status") or "candidate")
+            variants = list(pattern.get("variants") or [])
+
+            patterns.append({
+                "id": pattern_id,
+                "status": status,
+                "confidence": confidence,
+                "observationCount": len(observations),
+                "variantCount": len(variants),
+            })
+
+            # Conservative promotion: requires evidence count as well as confidence.
+            if confidence >= 0.78 and len(observations) >= 3 and status in {"candidate", "tested"}:
+                promotions.append({
+                    "patternId": pattern_id,
+                    "from": status,
+                    "to": "proven",
+                    "reason": "confidence_and_repeated_observation",
+                })
+
+            if confidence < 0.35 and status in {"candidate", "tested"}:
+                constraints.append({
+                    "patternId": pattern_id,
+                    "recommendedStatus": "contextualized",
+                    "reason": "low_confidence",
+                })
+
+            if variants and len(variants) >= 3:
+                variant_reviews.append({
+                    "patternId": pattern_id,
+                    "variants": variants,
+                    "action": "compare_and_prune_or_promote",
+                    "reason": "variant_family_growth",
+                })
+
+            if confidence >= 0.65:
+                try:
+                    matches = self.propagation_candidates(pattern_id)
+                except SiteMachineError:
+                    matches = []
+                for match in matches:
+                    propagation.append({"patternId": pattern_id, **match})
+
+        propagation.sort(key=lambda x: (x["score"], next((p["confidence"] for p in patterns if p["id"] == x["patternId"]), 0)), reverse=True)
+
+        report = {
+            "capturedAt": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+            "patternCount": len(patterns),
+            "promotions": promotions,
+            "constraints": constraints,
+            "variantReviews": variant_reviews,
+            "propagationCandidates": propagation[:50],
+            "policy": {
+                "automaticProductionEdits": False,
+                "promotionRequiresEvidence": True,
+                "propagationRequiresBranchQA": True,
+            },
+        }
+        stamp = time.strftime("%Y%m%d-%H%M%S", time.gmtime())
+        _write_json(self.observations / "system" / f"pattern-cycle-{stamp}.json", report)
+        return report
+
+
     def propagation_candidates(self, pattern_id: str) -> list[dict[str, Any]]:
         path = self.patterns / f"{pattern_id}.json"
         if not path.exists():
