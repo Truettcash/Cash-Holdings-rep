@@ -96,6 +96,23 @@ if ($NeedsBootstrap) {
 
 New-Item -ItemType Directory -Force -Path $Workspace | Out-Null
 
+$Seed = Join-Path $Root "workspace_seed"
+if (Test-Path $Seed) {
+  Write-Host "Seeding/updating multi-site Site Factory workspace..."
+  Copy-Item (Join-Path $Seed "AGENTS.md") (Join-Path $Workspace "AGENTS.md") -Force
+
+  $FactorySeed = Join-Path $Seed "site-factory"
+  $FactoryTarget = Join-Path $Workspace "site-factory"
+  New-Item -ItemType Directory -Force -Path $FactoryTarget | Out-Null
+
+  Copy-Item (Join-Path $FactorySeed "SYSTEM.md") (Join-Path $FactoryTarget "SYSTEM.md") -Force
+  Copy-Item (Join-Path $FactorySeed "schemas") $FactoryTarget -Recurse -Force
+
+  foreach ($dir in @("sites","patterns","observations","variants")) {
+    New-Item -ItemType Directory -Force -Path (Join-Path $FactoryTarget $dir) | Out-Null
+  }
+}
+
 if (-not (Test-Path $Python)) {
   python -m venv $Venv
 }
