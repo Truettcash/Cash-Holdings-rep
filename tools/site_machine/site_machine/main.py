@@ -139,6 +139,20 @@ def daemon() -> int:
         time.sleep(poll)
 
 
+def cmd_local_status(_: argparse.Namespace) -> int:
+    caps, detail = detect_capabilities()
+    _print({
+        "ok": True,
+        "nodeId": _node_id(),
+        "workspace": _workspace(),
+        "capabilities": caps,
+        "detail": detail,
+        "cloudControlPlane": "deferred",
+        "mode": "local-only",
+    })
+    return 0
+
+
 def cmd_status(_: argparse.Namespace) -> int:
     client = _client()
     heartbeat(client, "status")
@@ -158,6 +172,8 @@ def cmd_daemon(_: argparse.Namespace) -> int:
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="cash-site-machine")
     sub = parser.add_subparsers(dest="command", required=True)
+    local_status = sub.add_parser("local-status")
+    local_status.set_defaults(func=cmd_local_status)
     status = sub.add_parser("status")
     status.set_defaults(func=cmd_status)
     once = sub.add_parser("once")
