@@ -34,10 +34,10 @@ def _agent_command() -> list[str]:
 
     from shutil import which
 
-    if which("claude"):
-        return ["claude", "-p"]
     if which("codex"):
         return ["codex", "exec"]
+    if which("claude"):
+        return ["claude", "-p"]
     raise SiteMachineError(
         "No local AI harness found. Install Claude Code/Codex or set SITE_MACHINE_AGENT_CMD."
     )
@@ -67,6 +67,12 @@ Task input:
 
 Execution rules:
 - Work only inside the supplied task scope.
+- Treat this machine as a multi-site factory, not a single-site assistant.
+- Read the workspace AGENTS.md and site-factory/SYSTEM.md before broad site work.
+- Resolve the target site from the local site registry before editing.
+- Reuse patterns only when context matches; preserve site-specific identity.
+- Record material new patterns, variants, QA observations, and failures into the site-factory workspace.
+- Never propagate a pattern across sites without per-site review and QA.
 - Use the Framer External Agent connection when the task targets Framer.
 - Framer changes must stay on an agent branch. Do not publish production unless authority is RELEASE_REQUIRED and explicit release approval is present.
 - Inspect the actual mounted/rendered source before changing a visible component.
