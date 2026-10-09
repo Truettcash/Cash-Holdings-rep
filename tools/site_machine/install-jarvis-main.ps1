@@ -8,6 +8,34 @@ $Executable = Join-Path $Venv "Scripts\cash-site-machine.exe"
 $RunKey = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run"
 $RunName = "CashSiteMachineJarvisMain"
 
+function Invoke-SiteMachineStatus {
+  param([string]$Exe)
+
+  $psi = New-Object System.Diagnostics.ProcessStartInfo
+  $psi.FileName = $Exe
+  $psi.Arguments = "status"
+  $psi.WorkingDirectory = $Workspace
+  $psi.UseShellExecute = $false
+  $psi.RedirectStandardOutput = $true
+  $psi.RedirectStandardError = $true
+  $psi.CreateNoWindow = $true
+
+  $process = New-Object System.Diagnostics.Process
+  $process.StartInfo = $psi
+  [void]$process.Start()
+
+  $stdout = $process.StandardOutput.ReadToEnd()
+  $stderr = $process.StandardError.ReadToEnd()
+  $process.WaitForExit()
+
+  return [PSCustomObject]@{
+    ExitCode = $process.ExitCode
+    StdOut = $stdout
+    StdErr = $stderr
+    Text = ($stdout + [Environment]::NewLine + $stderr)
+  }
+}
+
 Write-Host "== Cash Site Machine / Jarvis Main =="
 
 if (-not (Get-Command python -ErrorAction SilentlyContinue)) {
@@ -83,11 +111,12 @@ finally {
 # Validate the existing Cash session against Supabase before starting the daemon.
 Write-Host ""
 Write-Host "Validating Cash MCP session..."
-$StatusOutput = & $Executable status 2>&1
-$StatusExit = $LASTEXITCODE
+$StatusResult = Invoke-SiteMachineStatus -Exe $Executable
+$StatusOutput = $StatusResult.Text
+$StatusExit = $StatusResult.ExitCode
 
 if ($StatusExit -ne 0) {
-  $StatusText = ($StatusOutput | Out-String)
+  $StatusText = $StatusResult.Text
 
   if (
     $StatusText -match "refresh_token_not_found" -or
@@ -114,13 +143,14 @@ if ($StatusExit -ne 0) {
     }
 
     Write-Host "Re-validating refreshed Cash session..."
-    $StatusOutput = & $Executable status 2>&1
-    $StatusExit = $LASTEXITCODE
+    $StatusResult = Invoke-SiteMachineStatus -Exe $Executable
+    $StatusOutput = $StatusResult.Text
+    $StatusExit = $StatusResult.ExitCode
   }
 }
 
 if ($StatusExit -ne 0) {
-  $StatusOutput | Write-Host
+  Write-Host $StatusOutput
   throw "Cash Site Machine auth validation failed. Daemon was not started."
 }
 
@@ -147,4 +177,4 @@ Write-Host "  Run /framer"
 Write-Host "  Connect each Framer project this machine should control"
 Write-Host ""
 Write-Host "Verify:"
-$StatusOutput | Write-Host
+Write-Host $StatusOutput
