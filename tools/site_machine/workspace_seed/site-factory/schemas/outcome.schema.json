@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Cash Site Outcome",
+  "type": "object",
+  "required": [
+    "id",
+    "siteKey",
+    "signal",
+    "patternIds",
+    "capturedAt"
+  ],
+  "properties": {
+    "id": {
+      "type": "string"
+    },
+    "siteKey": {
+      "type": "string"
+    },
+    "signal": {
+      "enum": [
+        "qa_pass",
+        "qa_fail",
+        "human_approved",
+        "human_rejected",
+        "revision_requested",
+        "conversion_up",
+        "conversion_down",
+        "performance_up",
+        "performance_down",
+        "client_approved",
+        "client_rejected"
+      ]
+    },
+    "value": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "patternIds": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "notes": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "capturedAt": {
+      "type": "string"
+    }
+  }
+}
