@@ -57,3 +57,22 @@ A site build and its project container are separate concepts.
 `new-site` always creates the durable build record first.
 A platform adapter may then provision or attach a container.
 Framer container creation must be proved by the actual provider; otherwise the build waits for a supplied project URL or an external provisioner configured with `SITE_MACHINE_CONTAINER_CMD`.
+
+
+## Project Factory
+
+Container and build orchestration commands:
+
+- `attach-container --build-id ... --project-url ...` — attach a proved existing project to a waiting build
+- `provision-site --build-id ...` — call the configured external provider and require a real returned project URL
+- `build-site --build-id ...` — run plan → build → optional browser QA → critic/fix convergence
+- `build-site --build-id ... --max-passes 4` — raise the critic/fix ceiling without weakening release gates
+
+A waiting build becomes `ready_for_build` only when a real project URL is attached or returned by a provider.
+
+## Convergence
+
+The autonomous loop fixes only BLOCKING and MAJOR issues automatically.
+MINOR findings can reach human review.
+No stage may publish production.
+`release_ready` means ready for human release review, not published.
