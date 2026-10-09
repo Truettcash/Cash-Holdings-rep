@@ -80,6 +80,50 @@ finally {
   Pop-Location
 }
 
+# Validate the existing Cash session against Supabase before starting the daemon.
+Write-Host ""
+Write-Host "Validating Cash MCP session..."
+$StatusOutput = & $Executable status 2>&1
+$StatusExit = $LASTEXITCODE
+
+if ($StatusExit -ne 0) {
+  $StatusText = ($StatusOutput | Out-String)
+
+  if (
+    $StatusText -match "refresh_token_not_found" -or
+    $StatusText -match "Invalid Refresh Token" -or
+    $StatusText -match "Cash MCP refresh session is missing" -or
+    $StatusText -match "AUTH_INVALID"
+  ) {
+    Write-Host ""
+    Write-Host "Stored Cash refresh session is invalid or revoked."
+    Write-Host "Creating a fresh Supabase Auth session now."
+
+    if (-not (Test-Path $Bootstrap)) {
+      throw "Cash session is invalid and bootstrap script was not found at $Bootstrap"
+    }
+
+    $CashEmail = Read-Host "Cash login email"
+    if (-not $CashEmail) {
+      throw "Cash login email is required to refresh the local Cash session."
+    }
+
+    & python $Bootstrap --email $CashEmail
+    if ($LASTEXITCODE -ne 0) {
+      throw "Cash MCP session bootstrap failed."
+    }
+
+    Write-Host "Re-validating refreshed Cash session..."
+    $StatusOutput = & $Executable status 2>&1
+    $StatusExit = $LASTEXITCODE
+  }
+}
+
+if ($StatusExit -ne 0) {
+  $StatusOutput | Write-Host
+  throw "Cash Site Machine auth validation failed. Daemon was not started."
+}
+
 # Per-user startup; no administrator elevation required.
 $Command = '"' + $Executable + '" daemon'
 New-Item -Path $RunKey -Force | Out-Null
@@ -103,4 +147,4 @@ Write-Host "  Run /framer"
 Write-Host "  Connect each Framer project this machine should control"
 Write-Host ""
 Write-Host "Verify:"
-& $Executable status
+$StatusOutput | Write-Host
