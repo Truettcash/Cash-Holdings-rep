@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Cash Site Pattern",
+  "type": "object",
+  "required": ["id", "category", "name", "problem", "status", "confidence", "contexts", "antiContexts", "sources", "variants", "version"],
+  "properties": {
+    "id": {"type":"string"},
+    "category": {"type":"string"},
+    "name": {"type":"string"},
+    "problem": {"type":"string"},
+    "status": {"enum":["candidate","tested","proven","contextualized","deprecated"]},
+    "confidence": {"type":"number","minimum":0,"maximum":1},
+    "contexts": {"type":"array","items":{"type":"string"}},
+    "antiContexts": {"type":"array","items":{"type":"string"}},
+    "sources": {"type":"array","items":{"type":"string"}},
+    "observations": {"type":"array","items":{"type":"string"}},
+    "variants": {"type":"array","items":{"type":"string"}},
+    "implementationNotes": {"type":"array","items":{"type":"string"}},
+    "version": {"type":"integer","minimum":1}
+  }
+}
