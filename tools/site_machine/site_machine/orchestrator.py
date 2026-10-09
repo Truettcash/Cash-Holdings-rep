@@ -218,16 +218,20 @@ Prove the target project identity before any write.
 Create a concise implementation strategy and 2-3 materially different design variants when uncertainty is material.
 Choose one recommended direction and explain why.
 Do not publish.
+Missing business facts, credentials, response-time claims, service-area claims, phone numbers, or form destinations must never be fabricated.
+Treat missing content facts as RELEASE blockers, not BUILD blockers: use clearly marked placeholders or omit unsupported claims so the implementation can still proceed safely.
 End with one JSON object containing:
-{"projectIdentityProved":true|false,"recommendedVariant":"...","selectedPatterns":["..."],"blockers":["..."]}""",
+{"projectIdentityProved":true|false,"recommendedVariant":"...","selectedPatterns":["..."],"buildBlockers":["..."],"releaseBlockers":["..."]}""",
         )
         build["orchestration"]["stages"].append({"stage": "plan", "result": plan})
         plan_structured = plan.get("structured") or {}
-        plan_blockers = list(plan_structured.get("blockers") or [])
+        build_blockers = list(plan_structured.get("buildBlockers") or [])
+        release_blockers = list(plan_structured.get("releaseBlockers") or [])
         identity_proved = plan_structured.get("projectIdentityProved")
-        if (not plan.get("ok")) or plan_blockers or identity_proved is False:
+        build["orchestration"]["releaseBlockers"] = release_blockers
+        if (not plan.get("ok")) or build_blockers or identity_proved is False:
             build["status"] = "blocked"
-            build["orchestration"]["blockers"] = plan_blockers or ["Planner did not prove project identity."]
+            build["orchestration"]["blockers"] = build_blockers or ["Planner did not prove project identity."]
             self.save_build(build)
             return build
 
