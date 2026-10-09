@@ -171,3 +171,34 @@ For each task return:
 - recommended next action
 
 Never expose credentials.
+
+
+## Closed-loop network
+
+The local machine should continuously turn build evidence into better future decisions.
+
+### Browser QA
+Use `cash-site-machine qa-url` for responsive captures when a preview URL exists. Minimum target widths are desktop, laptop, tablet, and mobile. Visual QA findings belong in `site-factory/observations/`.
+
+### Outcome signals
+Record human and measurable outcomes with `cash-site-machine record-outcome`.
+Supported signals include QA pass/fail, approval/rejection, revision requests, conversion direction, performance direction, and client approval/rejection.
+
+Do not inflate confidence from one observation. Pattern confidence moves conservatively and should reflect repeated evidence.
+
+### Pattern cycle
+Use `cash-site-machine pattern-cycle` after material builds or batches of outcomes.
+The cycle may recommend:
+- promotion candidates
+- contextualization/demotion
+- variant-family review
+- cross-site propagation candidates
+
+The cycle never publishes production changes automatically.
+
+### New-site containers
+Use `cash-site-machine new-site` to create a durable SiteIntent/build record and rank reusable patterns.
+If a project container already exists, pass its project URL.
+If no container exists, the build remains `waiting_for_container` unless a configured `SITE_MACHINE_CONTAINER_CMD` provisioner returns a project URL.
+
+Container provisioning is provider-specific. Never claim a Framer project was created unless a provider actually returns and proves that project identity.
