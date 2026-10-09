@@ -272,6 +272,11 @@ Write-Host "Factory verification:"
 Write-Host ""
 Write-Host "New-site lane:"
 Write-Host '  cash-site-machine new-site --name "Example" --prompt "Build a premium lead-gen site" --platform framer'
+Write-Host "Project factory:"
+Write-Host '  cash-site-machine attach-container --build-id <build-id> --project-url <project-url>'
+Write-Host '  cash-site-machine provision-site --build-id <build-id>'
+Write-Host "Autonomous branch-safe build:"
+Write-Host '  cash-site-machine build-site --build-id <build-id> --max-passes 3'
 Write-Host "Browser QA:"
 Write-Host '  cash-site-machine qa-url --url https://example.com --name example'
 Write-Host "Outcome signal:"
