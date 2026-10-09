@@ -19,11 +19,47 @@ if (-not (Get-Command node -ErrorAction SilentlyContinue)) {
 
 $CashConfig = Join-Path $env:USERPROFILE ".cash-mcp\config.json"
 $CashSession = Join-Path $env:USERPROFILE ".cash-mcp\session.json"
+$RepoRoot = Resolve-Path (Join-Path $Root "..\..")
+$Bootstrap = Join-Path $RepoRoot "runtime\bootstrap\bootstrap_cash_session.py"
+
 if (-not (Test-Path $CashConfig)) {
   throw "Existing Cash MCP config not found at $CashConfig"
 }
-if (-not (Test-Path $CashSession)) {
-  throw "Existing Cash MCP user session not found at $CashSession"
+
+$NeedsBootstrap = $true
+if (Test-Path $CashSession) {
+  try {
+    $SessionJson = Get-Content $CashSession -Raw | ConvertFrom-Json
+    if ($SessionJson.refresh_token) {
+      $NeedsBootstrap = $false
+    }
+  }
+  catch {
+    $NeedsBootstrap = $true
+  }
+}
+
+if ($NeedsBootstrap) {
+  if (-not (Test-Path $Bootstrap)) {
+    throw "Cash MCP refresh session is missing and bootstrap script was not found at $Bootstrap"
+  }
+
+  Write-Host ""
+  Write-Host "Cash MCP refresh session is missing."
+  Write-Host "A fresh refresh-capable session will be created through Supabase Auth."
+  $CashEmail = Read-Host "Cash login email"
+  if (-not $CashEmail) {
+    throw "Cash login email is required to bootstrap the session."
+  }
+
+  & python $Bootstrap --email $CashEmail
+  if ($LASTEXITCODE -ne 0) {
+    throw "Cash MCP session bootstrap failed."
+  }
+
+  if (-not (Test-Path $CashSession)) {
+    throw "Cash MCP session bootstrap completed without creating $CashSession"
+  }
 }
 
 New-Item -ItemType Directory -Force -Path $Workspace | Out-Null
