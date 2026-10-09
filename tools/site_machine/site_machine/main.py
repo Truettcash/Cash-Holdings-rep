@@ -15,6 +15,7 @@ from .client import CashSessionClient, SiteMachineError
 from .factory import SiteFactory
 from .qa import browser_qa
 from .runner import run_agent_task
+from .orchestrator import BuildOrchestrator
 
 VERSION = "cash-site-machine-v1"
 
@@ -174,6 +175,36 @@ def cmd_new_site(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_attach_container(args: argparse.Namespace) -> int:
+    result = BuildOrchestrator(_workspace()).attach_container(
+        build_id=args.build_id,
+        project_url=args.project_url,
+        project_id=args.project_id,
+        preview_url=args.preview_url,
+    )
+    _print(result)
+    return 0
+
+
+def cmd_provision_site(args: argparse.Namespace) -> int:
+    result = BuildOrchestrator(_workspace()).provision(
+        build_id=args.build_id,
+        command=args.command,
+    )
+    _print(result)
+    return 0
+
+
+def cmd_build_site(args: argparse.Namespace) -> int:
+    result = BuildOrchestrator(_workspace()).run(
+        build_id=args.build_id,
+        max_passes=args.max_passes,
+        skip_qa=args.skip_qa,
+    )
+    _print(result)
+    return 0
+
+
 def cmd_record_outcome(args: argparse.Namespace) -> int:
     factory = SiteFactory(_workspace())
     result = factory.record_outcome(
@@ -235,6 +266,24 @@ def build_parser() -> argparse.ArgumentParser:
     new_site.add_argument("--industry")
     new_site.add_argument("--project-url")
     new_site.set_defaults(func=cmd_new_site)
+
+    attach = sub.add_parser("attach-container")
+    attach.add_argument("--build-id", required=True)
+    attach.add_argument("--project-url", required=True)
+    attach.add_argument("--project-id")
+    attach.add_argument("--preview-url")
+    attach.set_defaults(func=cmd_attach_container)
+
+    provision = sub.add_parser("provision-site")
+    provision.add_argument("--build-id", required=True)
+    provision.add_argument("--command")
+    provision.set_defaults(func=cmd_provision_site)
+
+    build_site = sub.add_parser("build-site")
+    build_site.add_argument("--build-id", required=True)
+    build_site.add_argument("--max-passes", type=int, default=3)
+    build_site.add_argument("--skip-qa", action="store_true")
+    build_site.set_defaults(func=cmd_build_site)
 
     outcome = sub.add_parser("record-outcome")
     outcome.add_argument("--site-key", required=True)
