@@ -1,5 +1,6 @@
 param(
-  [switch]$CloudPair
+  [switch]$CloudPair,
+  [switch]$InstallRive
 )
 
 $ErrorActionPreference = "Stop"
@@ -49,48 +50,51 @@ if (-not (Get-Command node -ErrorAction SilentlyContinue)) {
   throw "Node.js is required for Framer External Agents."
 }
 
-$CashConfig = Join-Path $env:USERPROFILE ".cash-mcp\config.json"
-$CashSession = Join-Path $env:USERPROFILE ".cash-mcp\session.json"
 $RepoRoot = Resolve-Path (Join-Path $Root "..\..")
 $Bootstrap = Join-Path $Root "site_machine\magic_link_bootstrap.py"
 
-if (-not (Test-Path $CashConfig)) {
-  throw "Existing Cash MCP config not found at $CashConfig"
-}
+if ($CloudPair) {
+  $CashConfig = Join-Path $env:USERPROFILE ".cash-mcp\config.json"
+  $CashSession = Join-Path $env:USERPROFILE ".cash-mcp\session.json"
 
-$NeedsBootstrap = $true
-if (Test-Path $CashSession) {
-  try {
-    $SessionJson = Get-Content $CashSession -Raw | ConvertFrom-Json
-    if ($SessionJson.refresh_token) {
-      $NeedsBootstrap = $false
+  if (-not (Test-Path $CashConfig)) {
+    throw "Existing Cash MCP config not found at $CashConfig"
+  }
+
+  $NeedsBootstrap = $true
+  if (Test-Path $CashSession) {
+    try {
+      $SessionJson = Get-Content $CashSession -Raw | ConvertFrom-Json
+      if ($SessionJson.refresh_token) {
+        $NeedsBootstrap = $false
+      }
+    }
+    catch {
+      $NeedsBootstrap = $true
     }
   }
-  catch {
-    $NeedsBootstrap = $true
-  }
-}
 
-if ($NeedsBootstrap) {
-  if (-not (Test-Path $Bootstrap)) {
-    throw "Cash MCP refresh session is missing and bootstrap script was not found at $Bootstrap"
-  }
+  if ($NeedsBootstrap) {
+    if (-not (Test-Path $Bootstrap)) {
+      throw "Cash MCP refresh session is missing and bootstrap script was not found at $Bootstrap"
+    }
 
-  Write-Host ""
-  Write-Host "Cash MCP refresh session is missing or invalid."
-  Write-Host "A fresh refresh-capable session will be created with a Supabase magic link."
-  $CashEmail = Read-Host "Cash magic-link email"
-  if (-not $CashEmail) {
-    throw "Cash magic-link email is required to bootstrap the session."
-  }
+    Write-Host ""
+    Write-Host "Cash MCP refresh session is missing or invalid."
+    Write-Host "A fresh refresh-capable session will be created with a Supabase magic link."
+    $CashEmail = Read-Host "Cash magic-link email"
+    if (-not $CashEmail) {
+      throw "Cash magic-link email is required to bootstrap the session."
+    }
 
-  & python $Bootstrap --email $CashEmail
-  if ($LASTEXITCODE -ne 0) {
-    throw "Cash magic-link session bootstrap failed."
-  }
+    & python $Bootstrap --email $CashEmail
+    if ($LASTEXITCODE -ne 0) {
+      throw "Cash magic-link session bootstrap failed."
+    }
 
-  if (-not (Test-Path $CashSession)) {
-    throw "Cash MCP session bootstrap completed without creating $CashSession"
+    if (-not (Test-Path $CashSession)) {
+      throw "Cash MCP session bootstrap completed without creating $CashSession"
+    }
   }
 }
 
@@ -108,7 +112,7 @@ if (Test-Path $Seed) {
   Copy-Item (Join-Path $FactorySeed "SYSTEM.md") (Join-Path $FactoryTarget "SYSTEM.md") -Force
   Copy-Item (Join-Path $FactorySeed "schemas") $FactoryTarget -Recurse -Force
 
-  foreach ($dir in @("sites","patterns","observations","variants")) {
+  foreach ($dir in @("sites","patterns","observations","variants","builds","qa")) {
     New-Item -ItemType Directory -Force -Path (Join-Path $FactoryTarget $dir) | Out-Null
   }
 }
@@ -127,6 +131,24 @@ try {
 }
 finally {
   Pop-Location
+}
+
+if ($InstallRive) {
+  $RiveExisting = Get-Command rive -ErrorAction SilentlyContinue
+  if (-not $RiveExisting) {
+    $Bash = Get-Command bash -ErrorAction SilentlyContinue
+    $Curl = Get-Command curl.exe -ErrorAction SilentlyContinue
+    if ($Bash -and $Curl) {
+      Write-Host "Installing Rive CLI..."
+      & $Bash.Source -lc "curl -fsSL https://releases.rive.app/cli/install.sh | sh"
+      if ($LASTEXITCODE -ne 0) {
+        Write-Warning "Rive CLI installer returned a non-zero exit code."
+      }
+    }
+    else {
+      Write-Warning "Rive CLI install requested, but bash/curl are unavailable. Install manually and rerun local-status."
+    }
+  }
 }
 
 # Validate the existing Cash session against Supabase before starting the daemon.
@@ -174,7 +196,6 @@ if ($CloudPair) {
   }
   
   $CloudReady = ($StatusExit -eq 0)
-  $CloudReady = ($StatusExit -eq 0)
 }
 else {
   Write-Host ""
@@ -216,6 +237,16 @@ Write-Host "  Connect each Framer project this machine should control"
 Write-Host ""
 Write-Host "Local verification:"
 & $Executable local-status
+Write-Host ""
+Write-Host "Factory verification:"
+& $Executable factory-status
+Write-Host ""
+Write-Host "New-site lane:"
+Write-Host '  cash-site-machine new-site --name "Example" --prompt "Build a premium lead-gen site" --platform framer'
+Write-Host "Browser QA:"
+Write-Host '  cash-site-machine qa-url --url https://example.com --name example'
+Write-Host "Outcome signal:"
+Write-Host '  cash-site-machine record-outcome --site-key example --signal human_approved --pattern hero-example'
 
 if ($CloudReady) {
   Write-Host ""
