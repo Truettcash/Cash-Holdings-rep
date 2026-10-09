@@ -262,12 +262,32 @@ Use Rive only when motion materially improves the design and keep a non-Rive fal
 Build responsive desktop/tablet/mobile behavior.
 Respect the supplied authority. If authority is BRANCH_ONLY, create/use a branch before edits. If authority is MAIN_EDIT_ALLOWED, direct edits to the proved generated project main canvas are permitted, but publishing production is still forbidden.
 Do not publish production.
+Do not classify missing business facts, unconnected forms, missing provider preview URLs, pending browser QA, critic review, or human release approval as BUILD blockers after implementation succeeds. Those are RELEASE blockers unless they prevent the implementation itself.
 End with one JSON object containing:
-{"changed":true|false,"previewUrl":"... or null","projectUrl":"...","filesOrNodes":["..."],"validation":["..."],"blockers":["..."]}""",
+{"changed":true|false,"previewUrl":"... or null","projectUrl":"...","filesOrNodes":["..."],"validation":["..."],"buildBlockers":["..."],"releaseBlockers":["..."]}""",
         )
         build["orchestration"]["stages"].append({"stage": "build", "result": build_result})
         structured = build_result.get("structured") or {}
-        build_blockers = list(structured.get("blockers") or [])
+        build_blockers = list(structured.get("buildBlockers") or [])
+        builder_release_blockers = list(structured.get("releaseBlockers") or [])
+
+        # Backward compatibility for older builder output. If the build changed
+        # successfully, legacy "blockers" that describe QA/release prerequisites
+        # should not abort the orchestration loop.
+        legacy_blockers = list(structured.get("blockers") or [])
+        if legacy_blockers and not build_blockers:
+            if structured.get("changed") is True and build_result.get("ok"):
+                builder_release_blockers.extend(legacy_blockers)
+            else:
+                build_blockers.extend(legacy_blockers)
+
+        if builder_release_blockers:
+            existing_release = list(build["orchestration"].get("releaseBlockers") or [])
+            for item in builder_release_blockers:
+                if item not in existing_release:
+                    existing_release.append(item)
+            build["orchestration"]["releaseBlockers"] = existing_release
+
         if (not build_result.get("ok")) or build_blockers:
             build["status"] = "blocked"
             build["orchestration"]["blockers"] = build_blockers or ["Builder exited unsuccessfully."]
