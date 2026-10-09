@@ -5,6 +5,7 @@ import base64
 import getpass
 import json
 import os
+import re
 import stat
 import tempfile
 import urllib.error
@@ -81,51 +82,83 @@ class _NoRedirect(urllib.request.HTTPRedirectHandler):
 
 def _extract_supabase_verify_url(value: str, supabase_url: str) -> str:
     expected = urllib.parse.urlparse(supabase_url)
+    host = expected.hostname or ""
     queue = [value.strip()]
     seen: set[str] = set()
 
-    while queue and len(seen) < 40:
+    def push(candidate: str) -> None:
+        candidate = candidate.strip().strip('"').strip("'")
+        if candidate and candidate not in seen and candidate not in queue:
+            queue.append(candidate)
+
+    while queue and len(seen) < 120:
         candidate = queue.pop(0)
         if not candidate or candidate in seen:
             continue
         seen.add(candidate)
 
-        # Decode common email-provider/tracking wrappers without requesting them.
+        # Direct/raw match anywhere in the copied text.
+        pattern = rf"https://{re.escape(host)}/auth/v1/verify[^\s<>\"']*"
+        match = re.search(pattern, candidate, flags=re.IGNORECASE)
+        if match:
+            return match.group(0)
+
+        # Repeated URL decoding catches Gmail, SafeLinks, and redirect wrappers.
         decoded = candidate
-        for _ in range(4):
+        for _ in range(8):
             next_value = urllib.parse.unquote(decoded)
             if next_value == decoded:
                 break
             decoded = next_value
-            if decoded not in seen:
-                queue.append(decoded)
+            push(decoded)
+            match = re.search(pattern, decoded, flags=re.IGNORECASE)
+            if match:
+                return match.group(0)
 
         try:
             parsed = urllib.parse.urlparse(candidate)
         except Exception:
-            continue
+            parsed = None
 
-        if (
-            parsed.scheme == "https"
-            and parsed.hostname == expected.hostname
-            and parsed.path.startswith("/auth/v1/verify")
-        ):
-            return candidate
+        if parsed:
+            if (
+                parsed.scheme == "https"
+                and parsed.hostname == host
+                and parsed.path.startswith("/auth/v1/verify")
+            ):
+                return candidate
 
-        # Tracking links usually place the real URL in a query parameter.
-        query = urllib.parse.parse_qs(parsed.query, keep_blank_values=True)
-        for values in query.values():
-            for item in values:
-                if item and item not in seen:
-                    queue.append(item)
+            query = urllib.parse.parse_qs(parsed.query, keep_blank_values=True)
+            for values in query.values():
+                for item in values:
+                    push(item)
 
-        # Some wrappers put the destination into the path.
-        if parsed.path:
-            queue.append(parsed.path.lstrip("/"))
+            if parsed.fragment:
+                push(parsed.fragment)
+            if parsed.path:
+                push(parsed.path.lstrip("/"))
+
+            # Common tracking providers place the destination after /url/, /redirect/, etc.
+            for segment in parsed.path.split("/"):
+                push(segment)
+
+        # Some providers encode the destination URL as URL-safe/base64 text.
+        compact = candidate.strip()
+        for token in re.findall(r"[A-Za-z0-9_-]{24,}={0,2}", compact):
+            padded = token + ("=" * (-len(token) % 4))
+            try:
+                decoded_bytes = base64.urlsafe_b64decode(padded.encode("ascii"))
+                decoded_text = decoded_bytes.decode("utf-8")
+            except Exception:
+                continue
+            push(decoded_text)
+            match = re.search(pattern, decoded_text, flags=re.IGNORECASE)
+            if match:
+                return match.group(0)
 
     raise MagicLinkBootstrapError(
-        "Could not find the Cash Supabase /auth/v1/verify URL inside the copied email link. "
-        "Use Copy link address on the actual sign-in button from the newest unused email."
+        "Could not recover the Cash Supabase verification URL from the copied link. "
+        "Copy the actual href from the newest unused sign-in email, or paste the whole copied button/link text."
     )
 
 
