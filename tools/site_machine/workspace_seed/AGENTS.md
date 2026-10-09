@@ -218,4 +218,6 @@ Stages:
 7. Successful convergence becomes `release_ready`; production still requires human approval.
 
 Never infer a preview URL that was not returned by the provider/agent.
+Missing provider preview URLs, missing verified business facts, unconnected submission destinations, pending browser QA, and pending human release approval are release blockers unless they prevent implementation itself.
+Do not stop a successfully implemented build before critic/QA simply because release blockers remain.
 Never mark release-ready if a final critic pass still has BLOCKING or MAJOR issues.
