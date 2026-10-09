@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import os
 import shlex
+import shutil
 import subprocess
 from pathlib import Path
 from typing import Any
@@ -10,21 +11,46 @@ from typing import Any
 from .client import SiteMachineError
 
 
+def _resolve_command(argv: list[str]) -> list[str]:
+    if not argv:
+        return argv
+
+    executable = shutil.which(argv[0])
+    if executable:
+        argv = [executable, *argv[1:]]
+
+    # Windows cannot CreateProcess a .cmd/.bat launcher directly with shell=False.
+    # Run those through cmd.exe while preserving argument boundaries.
+    if os.name == "nt" and argv and str(argv[0]).lower().endswith((".cmd", ".bat")):
+        cmd = os.environ.get("COMSPEC") or shutil.which("cmd.exe") or r"C:\Windows\System32\cmd.exe"
+        quoted = subprocess.list2cmdline(argv)
+        return [cmd, "/d", "/s", "/c", quoted]
+
+    return argv
+
+
 def _run(argv: list[str], *, cwd: str | None = None, timeout: int = 1800) -> dict[str, Any]:
-    proc = subprocess.run(
-        argv,
-        cwd=cwd,
-        capture_output=True,
-        text=True,
-        timeout=timeout,
-        shell=False,
-    )
-    return {
-        "ok": proc.returncode == 0,
-        "exitCode": proc.returncode,
-        "stdout": proc.stdout[-30000:],
-        "stderr": proc.stderr[-30000:],
-    }
+    resolved = _resolve_command(argv)
+    try:
+        proc = subprocess.run(
+            resolved,
+            cwd=cwd,
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+            shell=False,
+        )
+        return {
+            "ok": proc.returncode == 0,
+            "exitCode": proc.returncode,
+            "stdout": proc.stdout[-30000:],
+            "stderr": proc.stderr[-30000:],
+            "command": resolved,
+        }
+    except FileNotFoundError as exc:
+        raise SiteMachineError(
+            f"Local agent executable could not be launched: {resolved[0] if resolved else argv[0]}"
+        ) from exc
 
 
 def _agent_command() -> list[str]:
@@ -32,12 +58,13 @@ def _agent_command() -> list[str]:
     if configured:
         return shlex.split(configured)
 
-    from shutil import which
+    codex = shutil.which("codex")
+    claude = shutil.which("claude")
 
-    if which("codex"):
-        return ["codex", "exec"]
-    if which("claude"):
-        return ["claude", "-p"]
+    if codex:
+        return [codex, "exec"]
+    if claude:
+        return [claude, "-p"]
     raise SiteMachineError(
         "No local AI harness found. Install Claude Code/Codex or set SITE_MACHINE_AGENT_CMD."
     )
@@ -96,12 +123,13 @@ def run_agent_task(job: dict[str, Any], workspace_root: str) -> dict[str, Any]:
     prompt_file = working / "task.md"
     prompt_file.write_text(prompt, encoding="utf-8")
 
-    if command[:2] == ["claude", "-p"]:
-        result = _run(command + [prompt], cwd=str(working))
-    elif command[:2] == ["codex", "exec"]:
-        result = _run(command + [prompt], cwd=str(working))
+    exe_name = Path(command[0]).name.lower() if command else ""
+    if exe_name.startswith("claude"):
+        result = _run(command + [prompt], cwd=str(Path(workspace_root)))
+    elif exe_name.startswith("codex"):
+        result = _run(command + [prompt], cwd=str(Path(workspace_root)))
     else:
-        result = _run(command + [str(prompt_file)], cwd=str(working))
+        result = _run(command + [str(prompt_file)], cwd=str(Path(workspace_root)))
 
     result["workspace"] = str(working)
     result["taskFile"] = str(prompt_file)
