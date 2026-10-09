@@ -109,7 +109,7 @@ def _agent_command(agent: str = "", provider: str = "") -> list[str]:
     # non-interactive sessions can fail to create their internal shell helper,
     # which prevents the Framer skill from reaching the local bridge.
     # Route Framer implementation stages through Claude Code when available.
-    if provider.lower() == "framer" and agent.upper() in {"FRAMER_BUILDER", "MOTION_AGENT"} and claude:
+    if provider.lower() == "framer" and agent.upper() in {"SITE_PLANNER", "FRAMER_BUILDER", "MOTION_AGENT"} and claude:
         return [claude, "-p"]
 
     if codex:
