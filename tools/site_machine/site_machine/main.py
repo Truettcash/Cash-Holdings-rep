@@ -187,6 +187,11 @@ def cmd_record_outcome(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_pattern_cycle(_: argparse.Namespace) -> int:
+    _print(SiteFactory(_workspace()).pattern_cycle())
+    return 0
+
+
 def cmd_propagation_candidates(args: argparse.Namespace) -> int:
     _print(SiteFactory(_workspace()).propagation_candidates(args.pattern_id))
     return 0
@@ -238,6 +243,9 @@ def build_parser() -> argparse.ArgumentParser:
     outcome.add_argument("--pattern", action="append", default=[])
     outcome.add_argument("--notes")
     outcome.set_defaults(func=cmd_record_outcome)
+
+    pattern_cycle = sub.add_parser("pattern-cycle")
+    pattern_cycle.set_defaults(func=cmd_pattern_cycle)
 
     propagation = sub.add_parser("propagation-candidates")
     propagation.add_argument("--pattern-id", required=True)
