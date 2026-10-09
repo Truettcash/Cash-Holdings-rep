@@ -75,3 +75,27 @@ The daemon:
 8. unlocks the next dependency in Cash Site OS
 
 The local PC is an execution node. Supabase remains the canonical state and orchestration plane.
+
+
+## Multi-site recursive factory
+
+The installed workspace now contains a durable `site-factory/` intelligence layer.
+
+It is designed to:
+- register and inspect many current sites
+- build new sites from prompts
+- extract reusable patterns from existing sites
+- store pattern context, anti-contexts, variants, and evidence
+- generate multiple candidate variants when uncertainty is material
+- learn from QA, revisions, and outcomes
+- promote proven patterns
+- propose eligible cross-site improvements without blindly making every site identical
+
+The workspace contract lives at:
+
+    C:\Users\<you>\CashSiteMachine\AGENTS.md
+    C:\Users\<you>\CashSiteMachine\site-factory\SYSTEM.md
+
+The factory is intentionally platform-aware. Framer External Agents can inspect and modify authorized projects, but some project-container settings are not exposed. New Framer sites should therefore begin from a blank/template project container when necessary, then the Site Machine can generate the editable site inside it.
+
+Production publishing remains human-gated.
