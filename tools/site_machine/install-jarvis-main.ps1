@@ -1,3 +1,7 @@
+param(
+  [switch]$CloudPair
+)
+
 $ErrorActionPreference = "Stop"
 
 $Root = Split-Path -Parent $MyInvocation.MyCommand.Path
@@ -109,47 +113,58 @@ finally {
 }
 
 # Validate the existing Cash session against Supabase before starting the daemon.
-Write-Host ""
-Write-Host "Validating Cash MCP session..."
-$StatusResult = Invoke-SiteMachineStatus -Exe $Executable
-$StatusOutput = $StatusResult.Text
-$StatusExit = $StatusResult.ExitCode
+$CloudReady = $false
 
-if ($StatusExit -ne 0) {
-  $StatusText = $StatusResult.Text
-
-  if (
-    $StatusText -match "refresh_token_not_found" -or
-    $StatusText -match "Invalid Refresh Token" -or
-    $StatusText -match "Cash MCP refresh session is missing" -or
-    $StatusText -match "AUTH_INVALID"
-  ) {
-    Write-Host ""
-    Write-Host "Stored Cash refresh session is invalid or revoked."
-    Write-Host "Creating a fresh Supabase magic-link session now."
-
-    if (-not (Test-Path $Bootstrap)) {
-      throw "Cash session is invalid and magic-link bootstrap was not found at $Bootstrap"
+if ($CloudPair) {
+  Write-Host ""
+  Write-Host "Validating Cash MCP session..."
+  $StatusResult = Invoke-SiteMachineStatus -Exe $Executable
+  $StatusOutput = $StatusResult.Text
+  $StatusExit = $StatusResult.ExitCode
+  
+  if ($StatusExit -ne 0) {
+    $StatusText = $StatusResult.Text
+  
+    if (
+      $StatusText -match "refresh_token_not_found" -or
+      $StatusText -match "Invalid Refresh Token" -or
+      $StatusText -match "Cash MCP refresh session is missing" -or
+      $StatusText -match "AUTH_INVALID"
+    ) {
+      Write-Host ""
+      Write-Host "Stored Cash refresh session is invalid or revoked."
+      Write-Host "Creating a fresh Supabase magic-link session now."
+  
+      if (-not (Test-Path $Bootstrap)) {
+        throw "Cash session is invalid and magic-link bootstrap was not found at $Bootstrap"
+      }
+  
+      $CashEmail = Read-Host "Cash magic-link email"
+      if (-not $CashEmail) {
+        throw "Cash magic-link email is required to refresh the local Cash session."
+      }
+  
+      & python $Bootstrap --email $CashEmail
+      if ($LASTEXITCODE -ne 0) {
+        throw "Cash magic-link session bootstrap failed."
+      }
+  
+      Write-Host "Re-validating refreshed Cash session..."
+      $StatusResult = Invoke-SiteMachineStatus -Exe $Executable
+      $StatusOutput = $StatusResult.Text
+      $StatusExit = $StatusResult.ExitCode
     }
-
-    $CashEmail = Read-Host "Cash magic-link email"
-    if (-not $CashEmail) {
-      throw "Cash magic-link email is required to refresh the local Cash session."
-    }
-
-    & python $Bootstrap --email $CashEmail
-    if ($LASTEXITCODE -ne 0) {
-      throw "Cash magic-link session bootstrap failed."
-    }
-
-    Write-Host "Re-validating refreshed Cash session..."
-    $StatusResult = Invoke-SiteMachineStatus -Exe $Executable
-    $StatusOutput = $StatusResult.Text
-    $StatusExit = $StatusResult.ExitCode
   }
+  
+  $CloudReady = ($StatusExit -eq 0)
+  $CloudReady = ($StatusExit -eq 0)
 }
-
-$CloudReady = ($StatusExit -eq 0)
+else {
+  Write-Host ""
+  Write-Host "Skipping Supabase cloud pairing."
+  Write-Host "Jarvis Main will install in LOCAL-ONLY Site Machine mode."
+  Write-Host "Run this installer later with -CloudPair when cloud queue pairing is needed."
+}
 
 if ($CloudReady) {
   # Per-user startup; no administrator elevation required.
@@ -166,7 +181,7 @@ else {
   # Local Framer/Claude/Codex execution remains fully usable; cloud queue pairing is deferred.
   Remove-ItemProperty -Path $RunKey -Name $RunName -ErrorAction SilentlyContinue
   Write-Host ""
-  Write-Host "Cloud control-plane pairing is deferred."
+  Write-Host "Cloud control-plane pairing is deferred (no auth required for local mode)."
   Write-Host "Jarvis Main is installed in LOCAL-ONLY Site Machine mode."
   Write-Host "Framer External Agent, Claude/Codex, Git, and local build tooling can be used now."
   Write-Host "No Supabase daemon will start until cloud auth is paired later."
