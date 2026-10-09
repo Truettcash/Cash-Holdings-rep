@@ -156,6 +156,7 @@ class BuildOrchestrator:
         agent: str,
         instruction: str,
     ) -> dict[str, Any]:
+        authority = str(build.get("authority") or "BRANCH_ONLY")
         return {
             "build_id": build["buildId"],
             "task_id": task_id,
@@ -164,7 +165,7 @@ class BuildOrchestrator:
                 "taskId": task_id,
                 "agent": agent,
                 "provider": build.get("platform") or "framer",
-                "authority": "BRANCH_ONLY",
+                "authority": authority,
                 "input": {
                     "instruction": instruction,
                     "siteKey": build.get("siteKey"),
@@ -192,8 +193,23 @@ class BuildOrchestrator:
             result["structured"] = parsed
         return result
 
-    def run(self, build_id: str, max_passes: int = 3, skip_qa: bool = False) -> dict[str, Any]:
+    def run(
+        self,
+        build_id: str,
+        max_passes: int = 3,
+        skip_qa: bool = False,
+        allow_main: bool = False,
+    ) -> dict[str, Any]:
         build = self.load_build(build_id)
+        if allow_main:
+            if str(build.get("origin") or "") != "generator":
+                raise SiteMachineError(
+                    "--allow-main is only permitted for generator-origin builds. "
+                    "Existing-site revisions remain branch-only."
+                )
+            build["authority"] = "MAIN_EDIT_ALLOWED"
+        else:
+            build["authority"] = str(build.get("authority") or "BRANCH_ONLY")
         container = build.get("container") or {}
         if not container.get("projectUrl"):
             raise SiteMachineError(
@@ -244,7 +260,8 @@ For Framer, use the installed Framer skill and operate only on the proved target
 Source-trace any existing rendered component before replacing it.
 Use Rive only when motion materially improves the design and keep a non-Rive fallback.
 Build responsive desktop/tablet/mobile behavior.
-Keep all changes branch/preview safe. Do not publish production.
+Respect the supplied authority. If authority is BRANCH_ONLY, create/use a branch before edits. If authority is MAIN_EDIT_ALLOWED, direct edits to the proved generated project main canvas are permitted, but publishing production is still forbidden.
+Do not publish production.
 End with one JSON object containing:
 {"changed":true|false,"previewUrl":"... or null","projectUrl":"...","filesOrNodes":["..."],"validation":["..."],"blockers":["..."]}""",
         )
