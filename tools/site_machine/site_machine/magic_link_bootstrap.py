@@ -74,6 +74,58 @@ def _jwt_subject(token: str) -> str:
     return subject
 
 
+class _NoRedirect(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        return None
+
+
+def _resolve_magic_link(magic_url: str, supabase_url: str, publishable_key: str) -> str:
+    value = magic_url.strip()
+    if not value:
+        raise MagicLinkBootstrapError("No magic-link URL was provided")
+
+    parsed = urllib.parse.urlparse(value)
+    expected = urllib.parse.urlparse(supabase_url)
+
+    if parsed.scheme != "https" or parsed.hostname != expected.hostname:
+        raise MagicLinkBootstrapError(
+            "The pasted link is not the Cash Supabase magic-link URL."
+        )
+    if not parsed.path.startswith("/auth/v1/verify"):
+        raise MagicLinkBootstrapError(
+            "The pasted link is not a Supabase Auth verification link."
+        )
+
+    opener = urllib.request.build_opener(_NoRedirect)
+    req = urllib.request.Request(
+        value,
+        method="GET",
+        headers={"apikey": publishable_key, "Accept": "text/html"},
+    )
+
+    try:
+        response = opener.open(req, timeout=30)
+        location = response.headers.get("Location") or response.geturl()
+    except urllib.error.HTTPError as exc:
+        if exc.code in (301, 302, 303, 307, 308):
+            location = exc.headers.get("Location")
+        else:
+            detail = exc.read().decode("utf-8", errors="replace")[:2000]
+            raise MagicLinkBootstrapError(
+                f"Magic-link verification failed ({exc.code}): {detail}"
+            ) from exc
+    except urllib.error.URLError as exc:
+        raise MagicLinkBootstrapError(
+            f"Magic-link verification request failed: {exc.reason}"
+        ) from exc
+
+    if not location:
+        raise MagicLinkBootstrapError(
+            "Supabase verified the link but returned no redirect location."
+        )
+    return urllib.parse.urljoin(value, location)
+
+
 def _session_from_redirect(redirect_url: str) -> dict[str, Any]:
     value = redirect_url.strip()
     if not value:
@@ -97,8 +149,7 @@ def _session_from_redirect(redirect_url: str) -> dict[str, Any]:
 
     if not access_token or not refresh_token:
         raise MagicLinkBootstrapError(
-            "The pasted URL does not contain an access_token and refresh_token. "
-            "Paste the final browser URL after the Supabase magic link finishes redirecting."
+            "Supabase did not return an access_token and refresh_token from the magic link."
         )
 
     try:
@@ -183,15 +234,16 @@ def bootstrap_magic_link(email: str, state_root: str = "~/.cash-mcp") -> str:
 
     print("")
     print("Magic link sent.")
-    print("1. Open the email on this PC.")
-    print("2. Click the Supabase sign-in link.")
-    print("3. Let the browser finish redirecting.")
-    print("4. Copy the ENTIRE final URL from the browser address bar.")
+    print("1. Open the newest Supabase sign-in email.")
+    print("2. DO NOT click the link.")
+    print("3. Right-click the sign-in button/link and choose Copy link address.")
+    print("4. Paste that Supabase magic-link URL below.")
     print("")
-    redirect_url = getpass.getpass(
-        "Paste final redirect URL here (hidden so session tokens are not echoed): "
+    magic_url = getpass.getpass(
+        "Paste magic-link URL here (hidden so auth material is not echoed): "
     )
 
+    redirect_url = _resolve_magic_link(magic_url, supabase_url, publishable_key)
     session = _session_from_redirect(redirect_url)
     _write_session(root / "session.json", session)
     return str(session["user_id"])
