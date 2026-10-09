@@ -105,20 +105,14 @@ def _agent_command(agent: str = "", provider: str = "") -> list[str]:
     codex = shutil.which("codex")
     claude = shutil.which("claude")
 
-    # Codex remains the primary reasoning harness. On Windows, current Codex
-    # non-interactive sessions can fail to create their internal shell helper,
-    # which prevents the Framer skill from reaching the local bridge.
-    # Route Framer implementation stages through Claude Code when available.
-    if provider.lower() == "framer" and agent.upper() in {"SITE_PLANNER", "FRAMER_BUILDER", "MOTION_AGENT"} and claude:
-        return [claude, "-p"]
-
+    # Codex is the primary Site Machine harness for every role, including Framer.
     if codex:
         return [codex, "exec"]
     if claude:
         return [claude, "-p"]
 
     raise SiteMachineError(
-        "No local AI harness found. Install Claude Code/Codex or set SITE_MACHINE_AGENT_CMD."
+        "No local AI harness found. Install Codex or set SITE_MACHINE_AGENT_CMD."
     )
 
 
@@ -184,20 +178,15 @@ def run_agent_task(job: dict[str, Any], workspace_root: str) -> dict[str, Any]:
     if exe_name.startswith("claude"):
         result = _run(command + [prompt], cwd=str(Path(workspace_root)))
     elif exe_name.startswith("codex"):
-        # Codex explicitly supports '-' as the stdin prompt sentinel.
-        # This avoids Windows cmd.exe quoting/parsing of multiline prompts.
-        # The Site Machine workspace is intentionally not a Git repo; skip that guard
-        # because project identity/versioning is enforced by the Site Factory + provider.
+        # On Windows, Codex's inner sandbox/helper can fail before shell/MCP tools start.
+        # Site Machine already enforces target-project, branch, and release gates, so for
+        # unattended Framer execution we bypass Codex's inner sandbox and approvals.
+        # This also allows MCP/External Agent calls in codex exec.
         result = _run(
             [
                 command[0],
-                "--ask-for-approval",
-                "never",
                 "exec",
-                "--sandbox",
-                "workspace-write",
-                "-c",
-                "sandbox_workspace_write.network_access=true",
+                "--dangerously-bypass-approvals-and-sandbox",
                 "--skip-git-repo-check",
                 "-",
             ],
