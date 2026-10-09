@@ -97,7 +97,7 @@ def _run(
     }
 
 
-def _agent_command() -> list[str]:
+def _agent_command(agent: str = "", provider: str = "") -> list[str]:
     configured = os.environ.get("SITE_MACHINE_AGENT_CMD", "").strip()
     if configured:
         return shlex.split(configured)
@@ -105,10 +105,18 @@ def _agent_command() -> list[str]:
     codex = shutil.which("codex")
     claude = shutil.which("claude")
 
+    # Codex remains the primary reasoning harness. On Windows, current Codex
+    # non-interactive sessions can fail to create their internal shell helper,
+    # which prevents the Framer skill from reaching the local bridge.
+    # Route Framer implementation stages through Claude Code when available.
+    if provider.lower() == "framer" and agent.upper() in {"FRAMER_BUILDER", "MOTION_AGENT"} and claude:
+        return [claude, "-p"]
+
     if codex:
         return [codex, "exec"]
     if claude:
         return [claude, "-p"]
+
     raise SiteMachineError(
         "No local AI harness found. Install Claude Code/Codex or set SITE_MACHINE_AGENT_CMD."
     )
@@ -144,7 +152,8 @@ Execution rules:
 - Reuse patterns only when context matches; preserve site-specific identity.
 - Record material new patterns, variants, QA observations, and failures into the site-factory workspace.
 - Never propagate a pattern across sites without per-site review and QA.
-- Use the Framer External Agent connection when the task targets Framer.
+- Use the already-installed Framer External Agent connection when the task targets Framer.
+- Do NOT rerun `npx @framer/agent setup` inside a build task; setup is installer-owned.
 - Framer changes must stay on an agent branch. Do not publish production unless authority is RELEASE_REQUIRED and explicit release approval is present.
 - Inspect the actual mounted/rendered source before changing a visible component.
 - Preserve requested elements exactly.
@@ -157,7 +166,11 @@ Execution rules:
 
 def run_agent_task(job: dict[str, Any], workspace_root: str) -> dict[str, Any]:
     prompt = _render_prompt(job)
-    command = _agent_command()
+    payload = job.get("payload") or {}
+    command = _agent_command(
+        agent=str(payload.get("agent") or ""),
+        provider=str(payload.get("provider") or ""),
+    )
 
     build_id = str(job.get("build_id") or "unknown")
     task_id = str(job.get("task_id") or "unknown")
