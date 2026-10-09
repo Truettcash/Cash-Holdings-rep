@@ -202,3 +202,20 @@ If a project container already exists, pass its project URL.
 If no container exists, the build remains `waiting_for_container` unless a configured `SITE_MACHINE_CONTAINER_CMD` provisioner returns a project URL.
 
 Container provisioning is provider-specific. Never claim a Framer project was created unless a provider actually returns and proves that project identity.
+
+
+## Build orchestration
+
+The Site Machine may execute a full branch-safe build loop with `cash-site-machine build-site`.
+
+Stages:
+1. SITE_PLANNER proves project identity, reads the site/pattern context, and selects a variant.
+2. FRAMER_BUILDER or CODE_AGENT implements on a safe branch/preview.
+3. Browser QA captures responsive evidence when a preview URL is available.
+4. CRITIC_AGENT classifies findings as PASS, MINOR, MAJOR, or BLOCKING.
+5. The builder fixes only MAJOR/BLOCKING findings.
+6. Critic/fix repeats up to the configured pass limit.
+7. Successful convergence becomes `release_ready`; production still requires human approval.
+
+Never infer a preview URL that was not returned by the provider/agent.
+Never mark release-ready if a final critic pass still has BLOCKING or MAJOR issues.
