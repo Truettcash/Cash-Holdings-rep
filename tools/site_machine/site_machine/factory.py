@@ -42,12 +42,18 @@ class SiteFactory:
             path.mkdir(parents=True, exist_ok=True)
 
     def status(self) -> dict[str, Any]:
+        build_statuses: dict[str, int] = {}
+        for path in self.builds.glob("*.json"):
+            build = _read_json(path)
+            status = str(build.get("status") or "unknown")
+            build_statuses[status] = build_statuses.get(status, 0) + 1
         return {
             "sites": len(list(self.sites.glob("*.json"))),
             "patterns": len(list(self.patterns.glob("*.json"))),
             "observations": len(list(self.observations.rglob("*.json"))),
             "variants": len(list(self.variants.rglob("*.json"))),
             "builds": len(list(self.builds.glob("*.json"))),
+            "buildStatuses": build_statuses,
         }
 
     def rank_patterns(self, text: str, limit: int = 12) -> list[dict[str, Any]]:
