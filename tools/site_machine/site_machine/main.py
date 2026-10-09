@@ -11,7 +11,7 @@ import traceback
 from typing import Any
 
 from .capabilities import detect_capabilities
-from .client import SiteMachineError, SupabaseClient, SupabaseConfig
+from .client import CashSessionClient, SiteMachineError
 from .runner import run_agent_task
 
 VERSION = "cash-site-machine-v1"
@@ -21,8 +21,8 @@ def _print(value: Any) -> None:
     print(json.dumps(value, indent=2, sort_keys=True, default=str), flush=True)
 
 
-def _client() -> SupabaseClient:
-    return SupabaseClient(SupabaseConfig.from_env())
+def _client() -> CashSessionClient:
+    return CashSessionClient()
 
 
 def _node_id() -> str:
@@ -34,7 +34,7 @@ def _workspace() -> str:
     return os.environ.get("SITE_MACHINE_WORKSPACE", default)
 
 
-def heartbeat(client: SupabaseClient, mode: str = "daemon") -> dict[str, Any]:
+def heartbeat(client: CashSessionClient, mode: str = "daemon") -> dict[str, Any]:
     caps, detail = detect_capabilities()
     metadata = {
         "mode": mode,
@@ -43,59 +43,51 @@ def heartbeat(client: SupabaseClient, mode: str = "daemon") -> dict[str, Any]:
         "buildOrigins": ["outbound", "generator", "direct", "revision", "maintenance"],
         "detail": detail,
     }
-    return client.rpc(
-        "cash_site_machine_heartbeat",
-        {
-            "p_node_id": _node_id(),
-            "p_hostname": socket.gethostname(),
-            "p_platform": platform.system().lower(),
-            "p_version": VERSION,
-            "p_capabilities": caps,
-            "p_metadata": metadata,
-            "p_max_concurrency": int(os.environ.get("SITE_MACHINE_MAX_CONCURRENCY", "1")),
-        },
+    return client.action(
+        "heartbeat",
+        node_id=_node_id(),
+        hostname=socket.gethostname(),
+        platform=platform.system().lower(),
+        version=VERSION,
+        capabilities=caps,
+        metadata=metadata,
+        max_concurrency=int(os.environ.get("SITE_MACHINE_MAX_CONCURRENCY", "1")),
     )
 
 
-def claim(client: SupabaseClient) -> dict[str, Any] | None:
-    return client.rpc(
-        "cash_site_machine_claim",
-        {
-            "p_node_id": _node_id(),
-            "p_lease_seconds": int(os.environ.get("SITE_MACHINE_LEASE_SECONDS", "900")),
-        },
+def claim(client: CashSessionClient) -> dict[str, Any] | None:
+    return client.action(
+        "claim",
+        node_id=_node_id(),
+        lease_seconds=int(os.environ.get("SITE_MACHINE_LEASE_SECONDS", "900")),
     )
 
 
-def complete(client: SupabaseClient, job_id: str, result: dict[str, Any]) -> Any:
-    return client.rpc(
-        "cash_site_machine_complete",
-        {
-            "p_job_id": job_id,
-            "p_node_id": _node_id(),
-            "p_result": result,
-        },
+def complete(client: CashSessionClient, job_id: str, result: dict[str, Any]) -> Any:
+    return client.action(
+        "complete",
+        job_id=job_id,
+        node_id=_node_id(),
+        result=result,
     )
 
 
-def fail(client: SupabaseClient, job_id: str, error: Exception, *, retryable: bool = True) -> Any:
-    return client.rpc(
-        "cash_site_machine_fail",
-        {
-            "p_job_id": job_id,
-            "p_node_id": _node_id(),
-            "p_error": {
-                "code": type(error).__name__,
-                "message": str(error)[:2000],
-                "trace": traceback.format_exc()[-6000:],
-            },
-            "p_retryable": retryable,
-            "p_retry_delay_seconds": 60,
+def fail(client: CashSessionClient, job_id: str, error: Exception, *, retryable: bool = True) -> Any:
+    return client.action(
+        "fail",
+        job_id=job_id,
+        node_id=_node_id(),
+        error={
+            "code": type(error).__name__,
+            "message": str(error)[:2000],
+            "trace": traceback.format_exc()[-6000:],
         },
+        retryable=retryable,
+        retry_delay_seconds=60,
     )
 
 
-def run_once(client: SupabaseClient) -> dict[str, Any]:
+def run_once(client: CashSessionClient) -> dict[str, Any]:
     heartbeat(client, "once")
     job = claim(client)
     if not job:
@@ -150,7 +142,7 @@ def daemon() -> int:
 def cmd_status(_: argparse.Namespace) -> int:
     client = _client()
     heartbeat(client, "status")
-    _print(client.rpc("cash_site_machine_status", {}))
+    _print(client.action("status"))
     return 0
 
 
