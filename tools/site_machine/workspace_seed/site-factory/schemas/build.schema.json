@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Cash Site Build",
+  "type": "object",
+  "required": [
+    "buildId",
+    "siteKey",
+    "origin",
+    "prompt",
+    "platform",
+    "status",
+    "releaseGate"
+  ],
+  "properties": {
+    "buildId": {
+      "type": "string"
+    },
+    "siteKey": {
+      "type": "string"
+    },
+    "origin": {
+      "enum": [
+        "outbound",
+        "generator",
+        "direct",
+        "revision",
+        "maintenance"
+      ]
+    },
+    "prompt": {
+      "type": "string"
+    },
+    "platform": {
+      "type": "string"
+    },
+    "status": {
+      "enum": [
+        "waiting_for_container",
+        "ready_for_build",
+        "building",
+        "qa",
+        "review",
+        "release_ready",
+        "blocked",
+        "complete"
+      ]
+    },
+    "releaseGate": {
+      "enum": [
+        "human_required"
+      ]
+    },
+    "container": {
+      "type": "object"
+    }
+  }
+}
