@@ -139,3 +139,42 @@ Set `SITE_MACHINE_CONTAINER_CMD` to a trusted local provisioner that:
 3. returns JSON containing at least `projectUrl`.
 
 Until a provider is configured, Framer builds without a project URL remain safely `waiting_for_container`; the machine does not fabricate project creation.
+
+
+## Project Factory and autonomous build loop
+
+Attach a real project to a waiting build:
+
+    cash-site-machine attach-container --build-id "ozark-commercial-hvac-..." --project-url "https://framer.com/projects/..."
+
+Or invoke a configured provider:
+
+    cash-site-machine provision-site --build-id "ozark-commercial-hvac-..."
+
+Run the full branch-safe production loop:
+
+    cash-site-machine build-site --build-id "ozark-commercial-hvac-..." --max-passes 3
+
+The build orchestrator runs:
+- project identity proof + pattern/variant planning
+- Framer or code implementation
+- browser QA when a preview URL is available
+- critic classification
+- focused MAJOR/BLOCKING fixes
+- repeated critique up to the pass limit
+- durable orchestration evidence
+- `release_ready` only after convergence
+
+Production publishing remains human-gated.
+
+### Provider contract
+
+`SITE_MACHINE_CONTAINER_CMD` receives JSON on stdin and must return JSON on stdout:
+
+    {
+      "projectUrl": "https://...",
+      "projectId": "optional",
+      "previewUrl": "optional"
+    }
+
+The orchestrator refuses to advance a provider-created build when `projectUrl` is missing.
