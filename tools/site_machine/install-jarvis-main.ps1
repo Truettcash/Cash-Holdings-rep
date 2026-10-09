@@ -5,7 +5,8 @@ $Workspace = Join-Path $env:USERPROFILE "CashSiteMachine"
 $Venv = Join-Path $Workspace ".venv"
 $Python = Join-Path $Venv "Scripts\python.exe"
 $Executable = Join-Path $Venv "Scripts\cash-site-machine.exe"
-$TaskName = "Cash Site Machine - Jarvis Main"
+$RunKey = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run"
+$RunName = "CashSiteMachineJarvisMain"
 
 Write-Host "== Cash Site Machine / Jarvis Main =="
 
@@ -16,6 +17,15 @@ if (-not (Get-Command node -ErrorAction SilentlyContinue)) {
   throw "Node.js is required for Framer External Agents."
 }
 
+$CashConfig = Join-Path $env:USERPROFILE ".cash-mcp\config.json"
+$CashSession = Join-Path $env:USERPROFILE ".cash-mcp\session.json"
+if (-not (Test-Path $CashConfig)) {
+  throw "Existing Cash MCP config not found at $CashConfig"
+}
+if (-not (Test-Path $CashSession)) {
+  throw "Existing Cash MCP user session not found at $CashSession"
+}
+
 New-Item -ItemType Directory -Force -Path $Workspace | Out-Null
 
 if (-not (Test-Path $Python)) {
@@ -23,9 +33,9 @@ if (-not (Test-Path $Python)) {
 }
 
 & $Python -m pip install --upgrade pip
-& $Python -m pip install $Root
+& $Python -m pip install --upgrade $Root
 
-Write-Host "Installing or updating Framer External Agent skills..."
+Write-Host "Installing/updating Framer External Agent skills..."
 Push-Location $Workspace
 try {
   npx -y @framer/agent setup
@@ -34,28 +44,27 @@ finally {
   Pop-Location
 }
 
-if (-not $env:SUPABASE_URL) {
-  Write-Warning "SUPABASE_URL is not set in this shell."
-}
-if (-not ($env:SUPABASE_SECRET_KEY -or $env:SUPABASE_SERVICE_ROLE_KEY)) {
-  Write-Warning "Supabase backend key is not set in this shell."
-}
+# Per-user startup; no administrator elevation required.
+$Command = '"' + $Executable + '" daemon'
+New-Item -Path $RunKey -Force | Out-Null
+Set-ItemProperty -Path $RunKey -Name $RunName -Value $Command
 
-$Action = New-ScheduledTaskAction -Execute $Executable -Argument "daemon" -WorkingDirectory $Workspace
-$Trigger = New-ScheduledTaskTrigger -AtLogOn
-$Settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable -RestartCount 999 -RestartInterval (New-TimeSpan -Minutes 1) -ExecutionTimeLimit ([TimeSpan]::Zero)
+# Stop any stale local worker instance and start the updated one hidden.
+Get-Process -Name "cash-site-machine" -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+Start-Process -FilePath $Executable -ArgumentList "daemon" -WorkingDirectory $Workspace -WindowStyle Hidden
 
-Register-ScheduledTask -TaskName $TaskName -Action $Action -Trigger $Trigger -Settings $Settings -Description "Always-on Cash Site OS local execution node on Jarvis Main" -Force | Out-Null
-Start-ScheduledTask -TaskName $TaskName
+Start-Sleep -Seconds 3
 
 Write-Host ""
-Write-Host "Installed: $TaskName"
+Write-Host "Installed: Cash Site Machine - Jarvis Main"
 Write-Host "Workspace: $Workspace"
+Write-Host "Startup: per-user HKCU Run key (no admin required)"
+Write-Host "Auth: existing ~/.cash-mcp owner session; no service-role key stored locally"
 Write-Host ""
 Write-Host "One-time Framer authorization:"
 Write-Host "  Open Claude Code or Codex in $Workspace"
 Write-Host "  Run /framer"
-Write-Host "  Connect each Framer project that this machine should control"
+Write-Host "  Connect each Framer project this machine should control"
 Write-Host ""
 Write-Host "Verify:"
-Write-Host "  $Executable status"
+& $Executable status
