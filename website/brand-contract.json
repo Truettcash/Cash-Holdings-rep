@@ -1,11 +1,10 @@
 {
-  "id": "athrty.platform-experience.obsidian-mint.v1.1",
+  "id": "athrty.platform-experience.obsidian-mint.v1.2",
   "parent": "ATHRTY / Authority Systems",
   "authority": {
     "design": "Hatchable PX13 Obsidian Mint",
     "publicFlagship": "Vercel website/",
-    "productRuntime": "https://athrty-customer.hatchable.site",
-    "protectedPortfolio": "Truettcash/cash-holdings-os"
+    "productRuntime": "https://athrty-customer.hatchable.site"
   },
   "tokens": {
     "canvas": "#070e12",
@@ -65,9 +64,7 @@
     "status": "preview_qa_in_progress"
   },
   "provenance": {
-    "authoritativeProject": "proj_OjMkFUze3JKr",
     "authoritativeStylesheet": "public/obsidian/px13-mint.css",
-    "inspectedHatchableVersion": 1066,
     "syncMode": "versioned_snapshot_with_ci_drift_check",
     "ownedBy": "ATHRTY / Authority Systems"
   }
