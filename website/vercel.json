@@ -31,6 +31,16 @@
       "source": "/login",
       "destination": "https://athrty-customer.hatchable.site/login",
       "permanent": false
+    },
+    {
+      "source": "/diagnose",
+      "destination": "https://athrty-customer.hatchable.site/solutions",
+      "permanent": false
+    },
+    {
+      "source": "/inquiry",
+      "destination": "https://athrty-customer.hatchable.site/contact",
+      "permanent": false
     }
   ]
 }
