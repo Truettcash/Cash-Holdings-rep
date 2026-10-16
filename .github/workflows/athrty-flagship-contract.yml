@@ -1,0 +1,47 @@
+name: ATHRTY Flagship Contract
+on:
+  pull_request:
+    paths:
+      - 'website/**'
+      - 'qa/athrty/**'
+      - '.github/workflows/athrty-flagship-contract.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'website/**'
+      - 'qa/athrty/**'
+      - '.github/workflows/athrty-flagship-contract.yml'
+permissions:
+  contents: read
+jobs:
+  static-contract:
+    name: Brand, routing and accessibility static checks
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout reviewed source
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Verify deterministic brand token compilation and routes
+        run: node website/scripts/check-site-contract.mjs
+      - name: Compare Obsidian Mint tokens with live Hatchable authority
+        run: node website/scripts/check-hatchable-token-parity.mjs
+
+  browser-regression:
+    name: Chromium responsive and accessibility regression
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout reviewed source
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Install test-only dependencies
+        working-directory: qa/athrty
+        run: npm install --no-audit --no-fund
+      - name: Install Chromium runtime
+        working-directory: qa/athrty
+        run: npx playwright install --with-deps chromium
+      - name: Run multi-breakpoint browser and axe checks
+        working-directory: qa/athrty
+        run: node validate-browser.mjs
