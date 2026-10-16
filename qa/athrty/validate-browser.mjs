@@ -24,7 +24,7 @@ const server=createServer((req,res)=>{
  if(redirects.has(pathname)){res.writeHead(307,{Location:redirects.get(pathname),"Cache-Control":"no-store"}).end();return}
  const path=resolve(root,"."+pathname,(pathname.endsWith("/")||!extname(pathname))?"index.html":"");
  if(!path.startsWith(root+"/")&&!path.endsWith("/website/index.html")){res.writeHead(403).end();return}
- if(!existsSync(path)){res.writeHead(404).end();return}
+ if(!existsSync(path)){res.writeHead(404,{"Content-Type":"text/html; charset=utf-8","Cache-Control":"no-store"});res.end(readFileSync(resolve(root,"404.html")));return}
  res.writeHead(200,{"Content-Type":types[extname(path)]||"application/octet-stream","Cache-Control":"no-store"});
  res.end(readFileSync(path));
 });
@@ -102,6 +102,17 @@ try{
    for(const violation of blocking)errors.push(route+" @"+width+": axe "+violation.id+" ("+violation.impact+"), "+violation.nodes.length+" nodes");
    axePass++;
   }
+ }
+ // Nonexistent routes must recover within the same brand, with a real 404 status.
+ await page.setViewportSize({width:375,height:812});
+ const missing=await page.goto(base+"/this-page-is-unavailable",{waitUntil:"domcontentloaded"});
+ check(missing?.status()===404,"Missing routes must return HTTP 404");
+ check((await page.title()).includes("ATHRTY"),"Fallback page lost ATHRTY identity");
+ check(await page.locator("main h1").count()===1,"Fallback page missing semantic heading");
+ check(await page.getByRole("link",{name:"Return home"}).count()===1,"Fallback page missing home recovery link");
+ const notFoundAxe=await new AxeBuilder({page}).withTags(["wcag2a","wcag2aa","wcag21a","wcag21aa"]).analyze();
+ for(const violation of notFoundAxe.violations.filter(v=>v.impact==="critical"||v.impact==="serious")){
+  errors.push("404 @375: axe "+violation.id+" ("+violation.impact+")");
  }
  // All external handoffs stay owned by the Hatchable application.
  for(const [route,destination] of redirects){
