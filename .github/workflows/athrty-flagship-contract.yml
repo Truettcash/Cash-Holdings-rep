@@ -22,3 +22,5 @@ jobs:
           persist-credentials: false
       - name: Verify deterministic brand token compilation and routes
         run: node website/scripts/check-site-contract.mjs
+      - name: Compare Obsidian Mint tokens with live Hatchable authority
+        run: node website/scripts/check-hatchable-token-parity.mjs
