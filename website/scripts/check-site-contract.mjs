@@ -33,6 +33,15 @@ for (const route of contract.publicRoutes) {
    expect(false,"Broken internal route "+href+" on "+route);
  }
 }
+const notFoundFile=resolve(root,"404.html");
+expect(existsSync(notFoundFile),"Missing branded 404 fallback");
+if(existsSync(notFoundFile)){
+ const html=readFileSync(notFoundFile,"utf8");
+ expect(html.includes("Page not found | ATHRTY"),"404 page has incorrect brand title");
+ expect(html.includes('name="robots" content="noindex,follow"'),"404 page must remain noindex");
+ expect(html.includes('<main id="main">')&&html.includes('href="/"'),"404 missing semantic recovery");
+ expect(html.includes("/assets/athrty-tokens.css"),"404 missing shared design tokens");
+}
 const tokenCheck=spawnSync(process.execPath,[resolve(root,"scripts/generate-brand-tokens.mjs"),"--check"],{encoding:"utf8"});
 expect(tokenCheck.status===0,"Generated CSS differs from contract: "+(tokenCheck.stderr||tokenCheck.stdout).trim());
 expect(contract.responsiveWidths.includes(375)&&contract.responsiveWidths.includes(1920),"Responsive contract incomplete");
