@@ -6,6 +6,10 @@ import { spawnSync } from "node:child_process";
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const contract = JSON.parse(readFileSync(resolve(root, "brand-contract.json"), "utf8"));
 const config = JSON.parse(readFileSync(resolve(root, "vercel.json"), "utf8"));
+if (Object.hasOwn(contract.authority, "protectedPortfolio") || Object.hasOwn(contract.provenance ?? {}, "authoritativeProject")) {
+ console.error("Public ATHRTY design contract must not disclose private operating-system or provider project identifiers.");
+ process.exit(1);
+}
 const errors = [];
 const expect = (condition, message) => { if (!condition) errors.push(message); };
 const redirects = new Map(config.redirects.map(({ source, destination }) => [source, destination]));
