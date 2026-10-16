@@ -35,7 +35,8 @@ try{
  await new Promise(resolve=>server.listen(0,"127.0.0.1",resolve));
  const base="http://127.0.0.1:"+server.address().port;
  browser=await chromium.launch({headless:true});
- const page=await browser.newPage();
+ const context=await browser.newContext({viewport:{width:1440,height:900}});
+ const page=await context.newPage();
  const widths=[320,375,390,430,768,880,881,1024,1090,1440,1920];
  let cases=0;
  for(const route of contract.publicRoutes){
